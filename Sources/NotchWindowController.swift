@@ -2,49 +2,61 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// Owns the borderless panel that floats over the notch. Handles geometry
-/// (top-center, flush to the screen top), expand/collapse animation, and
-/// repositioning when the screen layout changes.
+/// Fixed geometry for the notch surface. The window never resizes — only the
+/// SwiftUI content animates inside it — which is what keeps expand/collapse
+/// smooth and glitch-free.
+enum NotchMetrics {
+    // The host window is a fixed rectangle pinned to the top-center of the
+    // display. It must be at least as large as the expanded surface.
+    static let windowWidth: CGFloat = 760
+    static let windowHeight: CGFloat = 210
+
+    static let expandedWidth: CGFloat = 720
+    static let expandedHeight: CGFloat = 196
+
+    static let fallbackNotchWidth: CGFloat = 200
+    static let fallbackNotchHeight: CGFloat = 34
+}
+
+/// Owns the borderless panel hosting the notch UI. The window is a fixed size;
+/// expansion is animated entirely in SwiftUI. Mouse events pass through
+/// everywhere except the current notch shape (handled by NotchContainerView).
 @MainActor
 final class NotchWindowController {
 
     private let panel: NotchPanel
+    private let container: NotchContainerView
     private let notchState: NotchState
     private let store: ActivityStore
     private let widgetSettings: WidgetSettings
     private let battery: BatteryMonitor
     private let shelf: ShelfStore
+    private let openApps: OpenAppsMonitor
+    private let pages: PagesModel
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
     private var positionRetries = 0
-
-    // Collapsed dimensions match the physical notch exactly (overlaying it);
-    // these are the fallback for non-notched Macs.
-    private let fallbackNotchWidth: CGFloat = 190
-    private let fallbackNotchHeight: CGFloat = 32
-    // Expanded surface grows wider than the notch and drops downward.
-    private let expandedWidth: CGFloat = 460
-    private let expandedExtraHeight: CGFloat = 290  // added below the notch strip
-
-    // Cached notch dimensions (NSScreen). Positioning uses CoreGraphics, not
-    // NSScreen, whose frame origin proved unstable across launches/contexts.
-    private var anchorNotch: CGSize = .zero
+    private var pointerMonitors: [Any] = []
 
     init(
         notchState: NotchState,
         store: ActivityStore,
         widgetSettings: WidgetSettings,
         battery: BatteryMonitor,
-        shelf: ShelfStore
+        shelf: ShelfStore,
+        openApps: OpenAppsMonitor,
+        pages: PagesModel
     ) {
         self.notchState = notchState
         self.store = store
         self.widgetSettings = widgetSettings
         self.battery = battery
         self.shelf = shelf
+        self.openApps = openApps
+        self.pages = pages
 
         let panel = NotchPanel(
-            contentRect: NSRect(x: 0, y: 0, width: fallbackNotchWidth, height: fallbackNotchHeight),
+            contentRect: NSRect(x: 0, y: 0, width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -57,9 +69,15 @@ final class NotchWindowController {
         panel.hasShadow = false
         panel.isMovable = false
         panel.hidesOnDeactivate = false
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        // Start fully click-through. We only capture the mouse while the cursor
+        // is actually over the notch shape (see installPointerMonitors), so the
+        // big transparent window never blocks clicks to apps beneath it.
+        panel.ignoresMouseEvents = true
         self.panel = panel
+
+        let container = NotchContainerView(frame: panel.contentLayoutRect)
+        container.autoresizingMask = [.width, .height]
+        self.container = container
 
         let root = NotchView()
             .environmentObject(notchState)
@@ -67,39 +85,33 @@ final class NotchWindowController {
             .environmentObject(widgetSettings)
             .environmentObject(battery)
             .environmentObject(shelf)
+            .environmentObject(openApps)
+            .environmentObject(pages)
         let hosting = NSHostingView(rootView: root)
-        // CRITICAL: by default NSHostingView emits Auto Layout constraints from
-        // SwiftUI's intrinsic size. Those fight our manual setFrame animation on
-        // hover and trip an AppKit constraint-update assertion (EXC_BREAKPOINT).
-        // We drive the size ourselves, so disable hosting-view sizing entirely.
         hosting.sizingOptions = []
         hosting.translatesAutoresizingMaskIntoConstraints = true
+        hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
         hosting.layer?.backgroundColor = .clear
-        panel.contentView = hosting
+        container.addSubview(hosting)
 
-        // Resize/reposition whenever expansion (hover or peek) flips.
+        container.shapeRect = { [weak self] in self?.currentShapeRect() ?? .zero }
+        panel.contentView = container
+
+        // When expansion flips (e.g. a peek opens it under a stationary cursor),
+        // re-evaluate whether the pointer is now inside the larger shape.
         notchState.$isExpanded
             .removeDuplicates()
-            .sink { [weak self] expanded in
-                self?.applyFrame(expanded: expanded, animated: true)
-            }
+            .sink { [weak self] _ in self?.evaluatePointer() }
             .store(in: &cancellables)
 
-        // New/updated activity briefly peeks the notch open so it's noticeable
-        // without hovering, then collapses (unless the pointer is over it).
-        // Peek the notch open when activity arrives. We use the store's explicit
-        // callback (fired after apply() completes) rather than observing
-        // $activities, whose sink fires mid-willSet and proved unreliable here.
+        installPointerMonitors()
+
+        // Peek the notch on new activity.
         store.onActivity = { [weak self] in
             guard let self else { return }
             let hasContent = self.store.hasContent
-            // Hop to a fresh main run-loop turn before driving the resize: the
-            // callback fires from inside apply()'s execution and the panel
-            // animation is more reliable scheduled on its own turn.
-            DispatchQueue.main.async {
-                self.peek(hasContent: hasContent)
-            }
+            DispatchQueue.main.async { self.peek(hasContent: hasContent) }
         }
 
         NotificationCenter.default.addObserver(
@@ -112,12 +124,50 @@ final class NotchWindowController {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        for m in pointerMonitors { NSEvent.removeMonitor(m) }
+    }
+
+    // MARK: - Pointer tracking / click-through
+
+    /// We toggle `ignoresMouseEvents` based on whether the cursor is over the
+    /// notch. Mouse-move monitors (global fires while another app is active,
+    /// local while we are) keep it in sync without ever blocking clicks.
+    private func installPointerMonitors() {
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
+        let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+            MainActor.assumeIsolated { self?.evaluatePointer() }
+        })
+        if let global { pointerMonitors.append(global) }
+        let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
+            MainActor.assumeIsolated { self?.evaluatePointer() }
+            return event
+        })
+        if let local { pointerMonitors.append(local) }
+    }
+
+    /// The current notch shape rect in screen coordinates (bottom-left origin).
+    private func screenShapeRect() -> NSRect {
+        let local = currentShapeRect()
+        let origin = panel.frame.origin
+        return NSRect(x: origin.x + local.minX, y: origin.y + local.minY,
+                      width: local.width, height: local.height)
+    }
+
+    private func evaluatePointer() {
+        let inside = screenShapeRect().contains(NSEvent.mouseLocation)
+        // Capture the mouse only while over the notch; otherwise pass through.
+        if panel.ignoresMouseEvents != !inside {
+            panel.ignoresMouseEvents = !inside
+        }
+        if notchState.isHovering != inside {
+            notchState.isHovering = inside
+        }
     }
 
     func show() {
-        panel.orderFrontRegardless()
         positionRetries = 0
         ensurePositioned()
+        panel.orderFrontRegardless()
     }
 
     @objc private func screenParametersChanged() {
@@ -125,18 +175,27 @@ final class NotchWindowController {
         ensurePositioned()
     }
 
-    /// Right after launch the display subsystem can briefly report a missing
-    /// notch and bogus display bounds (the panel lands off-screen). Re-apply the
-    /// frame until the geometry is sane, then stop.
+    /// Pin the fixed window to the top-center of the main display and resolve
+    /// the notch dimensions. Retries briefly because the display subsystem can
+    /// report a missing notch / bogus bounds right after launch.
     private func ensurePositioned() {
-        refreshAnchor()
-        applyFrame(expanded: notchState.isExpanded, animated: false)
+        if let screen = targetScreen {
+            anchorNotch = notchSize(on: screen)
+            notchState.notchSize = anchorNotch
+        }
 
         let cg = CGDisplayBounds(CGMainDisplayID())
-        let f = panel.frame
-        let onScreen = f.minX >= 0 && f.maxX <= cg.width + 1 && cg.width > 100
-        let notchKnown = anchorNotch.height > 0
-        if (!onScreen || !notchKnown) && positionRetries < 24 {
+        if cg.width > 100 {
+            let x = (cg.width - NotchMetrics.windowWidth) / 2
+            let y = cg.height - NotchMetrics.windowHeight   // flush to the top
+            panel.setFrame(NSRect(x: x.rounded(), y: y.rounded(),
+                                  width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight),
+                           display: true)
+        }
+        evaluatePointer()
+
+        let sane = cg.width > 100 && anchorNotch.height > 0
+        if !sane && positionRetries < 24 {
             positionRetries += 1
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
                 self?.ensurePositioned()
@@ -144,10 +203,7 @@ final class NotchWindowController {
         }
     }
 
-    /// Open the notch for a moment when activity arrives, then collapse if the
-    /// pointer isn't over it.
     private func peek(hasContent: Bool) {
-        // Don't pop open just because the last activity was pruned away.
         guard hasContent else {
             notchState.isPeeking = false
             return
@@ -155,7 +211,7 @@ final class NotchWindowController {
         notchState.isPeeking = true
         peekTask?.cancel()
         peekTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
             guard !Task.isCancelled else { return }
             await MainActor.run { self?.notchState.isPeeking = false }
         }
@@ -163,81 +219,56 @@ final class NotchWindowController {
 
     // MARK: - Geometry
 
-    /// The screen we live on. Prefer the screen that actually has a notch — it's
-    /// the built-in display we want to attach to and, unlike `NSScreen.main`, it
-    /// stays stable regardless of which window has focus or which context we're
-    /// called from. (Relying on `NSScreen.main` here caused the expanded panel to
-    /// be positioned off-screen when peek ran from a dispatched context.)
+    private var anchorNotch: CGSize = .zero
+
     private var targetScreen: NSScreen? {
         NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
             ?? NSScreen.main
             ?? NSScreen.screens.first
     }
 
-    /// Physical notch size of the target screen (0×0 ⇒ no notch).
     private func notchSize(on screen: NSScreen) -> CGSize {
         let height = screen.safeAreaInsets.top
         guard height > 0 else { return .zero }
-        let width = NotchGeometry.notchWidth(of: screen) ?? fallbackNotchWidth
+        let width = NotchGeometry.notchWidth(of: screen) ?? NotchMetrics.fallbackNotchWidth
         return CGSize(width: width, height: height)
     }
 
-    /// Cache the notch dimensions (from NSScreen). Positioning uses CoreGraphics
-    /// (see `targetFrame`), which is stable; NSScreen's frame origin proved to
-    /// flap between launches/contexts, throwing the panel off-screen.
-    private func refreshAnchor() {
-        if let screen = targetScreen {
-            anchorNotch = notchSize(on: screen)
-        }
-        notchState.notchSize = anchorNotch
-    }
-
-    private func targetFrame(expanded: Bool) -> NSRect {
-        // Position from the main display's CoreGraphics bounds — a stable
-        // top-left-origin rect (main display is always at 0,0). We convert to
-        // Cocoa's bottom-left origin for setFrame.
-        let cg = CGDisplayBounds(CGMainDisplayID())
-        let screenW = cg.width
-        let screenH = cg.height
-
+    /// The interactive notch rect within the container (bottom-left origin),
+    /// matching whatever SwiftUI is currently drawing.
+    private func currentShapeRect() -> NSRect {
+        let expanded = notchState.isExpanded
         let hasNotch = anchorNotch.height > 0
-        let collapsedW = hasNotch ? anchorNotch.width : fallbackNotchWidth
-        let collapsedH = hasNotch ? anchorNotch.height : fallbackNotchHeight
+        let collapsedW = hasNotch ? anchorNotch.width : NotchMetrics.fallbackNotchWidth
+        let collapsedH = hasNotch ? anchorNotch.height : NotchMetrics.fallbackNotchHeight
 
-        let width = expanded ? max(expandedWidth, collapsedW) : collapsedW
-        let height = expanded ? (collapsedH + expandedExtraHeight) : collapsedH
-
-        // Centered horizontally on the notch; flush to the very top of the
-        // display (Cocoa top edge == screen height for the main display).
-        let centerX = screenW / 2
-        let topY = screenH
-        return NSRect(
-            x: (centerX - width / 2).rounded(),
-            y: (topY - height).rounded(),
-            width: width,
-            height: height
-        )
-    }
-
-    private func applyFrame(expanded: Bool, animated: Bool) {
-        // If the notch wasn't measurable yet at launch, try again now (the user
-        // is interacting, so the display subsystem is certainly ready).
-        if anchorNotch.height == 0 { refreshAnchor() }
-        let frame = targetFrame(expanded: expanded)
-        if animated {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.22
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                panel.animator().setFrame(frame, display: true)
-            }
-        } else {
-            panel.setFrame(frame, display: true)
-        }
+        let w = expanded ? NotchMetrics.expandedWidth : collapsedW
+        let h = expanded ? NotchMetrics.expandedHeight : collapsedH
+        // A little vertical tolerance so the hover doesn't drop on the seam.
+        let pad: CGFloat = expanded ? 0 : 4
+        let x = (NotchMetrics.windowWidth - w) / 2
+        let y = NotchMetrics.windowHeight - h - pad
+        return NSRect(x: x, y: y, width: w, height: h + pad)
     }
 }
 
-/// Borderless panels normally refuse key/main status; we allow key so SwiftUI
-/// hit-testing (hover, buttons) works, but never steal focus from the user's app.
+/// Hosts the SwiftUI view. Click-through is handled by the controller toggling
+/// the window's `ignoresMouseEvents`; this just refines hit-testing to the
+/// actual notch shape so the transparent corners never eat a click.
+final class NotchContainerView: NSView {
+    var shapeRect: () -> NSRect = { .zero }
+
+    override var isFlipped: Bool { false }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = convert(point, from: superview)
+        guard shapeRect().contains(local) else { return nil }
+        return super.hitTest(point)
+    }
+}
+
+/// Borderless panels normally refuse key status; allow it so SwiftUI buttons and
+/// drops work, but never steal focus from the user's app.
 final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -246,15 +277,12 @@ final class NotchPanel: NSPanel {
 /// Notch metrics. Uses `safeAreaInsets` / `auxiliaryTopLeftArea` to detect and
 /// measure the notch, with graceful fallback on non-notched Macs.
 enum NotchGeometry {
-    /// Returns the notch width if `screen` has one, else nil.
     static func notchWidth(of screen: NSScreen) -> CGFloat? {
         guard hasNotch(screen) else { return nil }
-        // The auxiliary areas flank the notch; the gap between them is the notch.
         if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
             let gap = right.minX - left.maxX
             if gap > 0 { return gap }
         }
-        // Fallback estimate if the auxiliary areas aren't reported.
         return 200
     }
 

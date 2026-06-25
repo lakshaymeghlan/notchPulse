@@ -4,8 +4,11 @@ import SwiftUI
 /// view in Widgets.swift to grow the surface.
 enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case clock
+    case agent
     case battery
-    case activity
+    case apps
+    case camera
+    case calendar
     case shelf
 
     var id: String { rawValue }
@@ -13,8 +16,11 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     var title: String {
         switch self {
         case .clock: return "Clock"
+        case .agent: return "Agent"
         case .battery: return "Battery"
-        case .activity: return "Activity"
+        case .apps: return "Open Apps"
+        case .camera: return "Camera"
+        case .calendar: return "Calendar"
         case .shelf: return "Shelf"
         }
     }
@@ -22,8 +28,11 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     var systemImage: String {
         switch self {
         case .clock: return "clock"
+        case .agent: return "waveform.path.ecg"
         case .battery: return "battery.100"
-        case .activity: return "waveform.path.ecg"
+        case .apps: return "square.grid.2x2"
+        case .camera: return "camera"
+        case .calendar: return "calendar"
         case .shelf: return "tray.full"
         }
     }
@@ -31,11 +40,17 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     var blurb: String {
         switch self {
         case .clock: return "Time and date at a glance."
+        case .agent: return "Live tasks from Claude Code & other tools."
         case .battery: return "Charge level and power state."
-        case .activity: return "Live tasks from Claude Code & other tools."
+        case .apps: return "Apps you currently have open."
+        case .camera: return "A live camera mirror (asks permission)."
+        case .calendar: return "Your next events (asks permission)."
         case .shelf: return "Drag files onto the notch to stash them."
         }
     }
+
+    /// Order the sections appear, left to right.
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .apps, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"
@@ -52,8 +67,9 @@ final class WidgetSettings: ObservableObject {
         if let raw = UserDefaults.standard.array(forKey: defaultsKey) as? [String] {
             enabled = Set(raw.compactMap(WidgetKind.init(rawValue:)))
         } else {
-            // Sensible defaults on first run.
-            enabled = [.clock, .battery, .activity, .shelf]
+            // Sensible, permission-free defaults on first run. Camera & Calendar
+            // are off by default so we never prompt unless the user opts in.
+            enabled = [.clock, .agent, .battery, .apps]
         }
     }
 

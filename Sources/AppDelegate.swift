@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let widgetSettings = WidgetSettings()
     let battery = BatteryMonitor()
     let shelf = ShelfStore()
+    let openApps = OpenAppsMonitor()
+    let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
 
@@ -21,7 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store: store,
             widgetSettings: widgetSettings,
             battery: battery,
-            shelf: shelf
+            shelf: shelf,
+            openApps: openApps,
+            pages: pages
         )
         controller.show()
         windowController = controller
