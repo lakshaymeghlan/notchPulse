@@ -260,6 +260,7 @@ private struct SectionView: View {
         case .battery:  BatterySection()
         case .apps:     OpenAppsSection()
         case .windows:  OpenWindowsSection()
+        case .music:    MusicSection()
         case .shelf:    ShelfSection()
         case .camera:   CameraSection()
         case .calendar: CalendarSection()

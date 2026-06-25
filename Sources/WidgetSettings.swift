@@ -8,6 +8,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case battery
     case apps
     case windows
+    case music
     case camera
     case calendar
     case shelf
@@ -21,6 +22,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .battery: return "Battery"
         case .apps: return "Open Apps"
         case .windows: return "Open Windows"
+        case .music: return "Music"
         case .camera: return "Camera"
         case .calendar: return "Calendar"
         case .shelf: return "Shelf"
@@ -34,6 +36,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .battery: return "battery.100"
         case .apps: return "square.grid.2x2"
         case .windows: return "macwindow.on.rectangle"
+        case .music: return "music.note"
         case .camera: return "camera"
         case .calendar: return "calendar"
         case .shelf: return "tray.full"
@@ -47,13 +50,14 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .battery: return "Charge level and power state."
         case .apps: return "Apps you currently have open — click to focus."
         case .windows: return "Open windows — click to bring one forward."
+        case .music: return "Now playing in Spotify / Apple Music."
         case .camera: return "A live camera mirror (asks permission)."
         case .calendar: return "Your next events (asks permission)."
         case .shelf: return "Drag files onto the notch to stash them."
         }
     }
 
-    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .apps, .windows, .camera, .shelf] }
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .apps, .windows, .music, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"

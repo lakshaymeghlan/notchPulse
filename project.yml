@@ -31,6 +31,7 @@ targets:
         INFOPLIST_KEY_NSCameraUsageDescription: "NotchPulse shows a live camera mirror in the notch when you enable the Camera widget."
         INFOPLIST_KEY_NSCalendarsUsageDescription: "NotchPulse shows your upcoming events in the notch when you enable the Calendar widget."
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "NotchPulse shows your upcoming events in the notch when you enable the Calendar widget."
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "NotchPulse reads and controls now-playing in Spotify / Apple Music for the Music widget."
         ENABLE_HARDENED_RUNTIME: true
         COMBINE_HIDPI_IMAGES: true
         SWIFT_EMIT_LOC_STRINGS: false

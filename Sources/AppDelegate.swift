@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let windows = WindowsMonitor()
     let camera = CameraController()
     let calendar = CalendarMonitor()
+    let music = NowPlayingMonitor()
     let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
@@ -31,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windows: windows,
             camera: camera,
             calendar: calendar,
+            music: music,
             pages: pages
         )
         controller.show()

@@ -23,7 +23,7 @@ final class PagesModel: ObservableObject {
             NotchPage(id: "focus", title: "Focus", icon: "scope",
                       widgets: [.clock, .calendar, .agent, .windows]),
             NotchPage(id: "media", title: "Media", icon: "play.circle",
-                      widgets: [.clock, .camera, .battery, .shelf]),
+                      widgets: [.clock, .music, .camera, .shelf]),
         ]
     }
 

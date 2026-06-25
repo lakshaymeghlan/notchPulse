@@ -323,6 +323,56 @@ private struct ShelfChip: View {
     }
 }
 
+// MARK: - Music (Spotify / Apple Music)
+
+struct MusicSection: View {
+    @EnvironmentObject var music: NowPlayingMonitor
+
+    var body: some View {
+        NotchSection(title: "Music", systemImage: "music.note") {
+            if let track = music.track {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(track.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white).lineLimit(1)
+                    Text(track.artist.isEmpty ? track.app : track.artist)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                    HStack(spacing: 16) {
+                        MusicButton(icon: "backward.fill") { music.previous() }
+                        MusicButton(icon: track.isPlaying ? "pause.fill" : "play.fill") { music.playPause() }
+                        MusicButton(icon: "forward.fill") { music.next() }
+                    }
+                    .padding(.top, 1)
+                }
+            } else if music.permissionNeeded {
+                Text("Allow control in System Settings → Automation")
+                    .font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "music.note").font(.system(size: 13))
+                    Text("Nothing playing").font(.system(size: 11))
+                }
+                .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .onAppear { music.startPolling() }
+        .onDisappear { music.stopPolling() }
+    }
+}
+
+private struct MusicButton: View {
+    let icon: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Camera mirror
 
 struct CameraSection: View {
