@@ -449,22 +449,26 @@ struct TeleprompterSection: View {
             VStack(alignment: .leading, spacing: 6) {
                 GeometryReader { geo in
                     Text(prompter.script)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
+                        .lineSpacing(2)
                         .frame(width: geo.size.width, alignment: .topLeading)
                         .background(
                             GeometryReader { textGeo in
-                                Color.clear.onChange(of: prompter.offset) { _, _ in
-                                    prompter.clamp(contentHeight: textGeo.size.height, viewport: geo.size.height)
-                                }
+                                Color.clear
+                                    .onAppear { prompter.measure(contentHeight: textGeo.size.height, viewport: geo.size.height) }
+                                    .onChange(of: textGeo.size.height) { _, h in
+                                        prompter.measure(contentHeight: h, viewport: geo.size.height)
+                                    }
                             }
                         )
                         .offset(y: -prompter.offset)
                         .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                         .clipped()
                 }
-                HStack(spacing: 14) {
+
+                HStack(spacing: 12) {
                     Button { prompter.togglePlay() } label: {
                         Image(systemName: prompter.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 13, weight: .semibold))
@@ -472,14 +476,25 @@ struct TeleprompterSection: View {
                     Button { prompter.reset() } label: {
                         Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .semibold))
                     }
+                    // Live timer: elapsed / total.
+                    Text("\(TeleprompterModel.clock(prompter.elapsed)) / \(TeleprompterModel.clock(prompter.totalSeconds))")
+                        .font(.system(size: 10, weight: .medium)).monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.6))
+
                     Spacer()
-                    Button { prompter.slower() } label: { Image(systemName: "minus") }
+
+                    Button { prompter.slower() } label: { Image(systemName: "tortoise.fill").font(.system(size: 11)) }
                     Text("\(Int(prompter.speed))").font(.system(size: 10, weight: .medium)).monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.7))
-                    Button { prompter.faster() } label: { Image(systemName: "plus") }
+                        .foregroundStyle(.white.opacity(0.7)).frame(width: 22)
+                    Button { prompter.faster() } label: { Image(systemName: "hare.fill").font(.system(size: 11)) }
+
+                    SettingsLink {
+                        Image(systemName: "pencil").font(.system(size: 11, weight: .semibold))
+                    }
+                    .help("Edit script")
                 }
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
                 .buttonStyle(.plain)
             }
         }

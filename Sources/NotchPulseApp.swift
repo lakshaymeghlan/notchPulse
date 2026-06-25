@@ -53,24 +53,52 @@ struct SettingsView: View {
     }
 }
 
-/// Edit the teleprompter script and speed.
+/// Edit the teleprompter script, scroll speed, and target duration.
 struct TeleprompterSettings: View {
     @EnvironmentObject var prompter: TeleprompterModel
+    @State private var minutes = 2.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Teleprompter script").font(.headline)
-            Text("This text scrolls in the Teleprompter widget. Use it on the Studio page.")
+            Text("Paste or type your full script — it scrolls in the Teleprompter widget (Studio page).")
                 .font(.subheadline).foregroundStyle(.secondary)
+
             TextEditor(text: $prompter.script)
                 .font(.system(size: 13))
-                .frame(minHeight: 320)
+                .frame(minHeight: 240)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.3)))
+
             HStack {
-                Text("Speed").foregroundStyle(.secondary)
-                Slider(value: $prompter.speed, in: 10...120)
+                Button("Clear") { prompter.script = "" }
+                Spacer()
+                Text("\(prompter.script.split(whereSeparator: { $0.isWhitespace }).count) words")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            // Manual speed.
+            HStack {
+                Image(systemName: "tortoise.fill").foregroundStyle(.secondary)
+                Slider(value: $prompter.speed, in: 8...200)
+                Image(systemName: "hare.fill").foregroundStyle(.secondary)
                 Text("\(Int(prompter.speed)) pt/s").monospacedDigit().frame(width: 64, alignment: .trailing)
             }
+
+            // Auto-speed: make the whole script take a set time.
+            HStack(spacing: 10) {
+                Text("Make it last").foregroundStyle(.secondary)
+                Stepper(value: $minutes, in: 0.25...30, step: 0.25) {
+                    Text(TeleprompterModel.clock(minutes * 60)).monospacedDigit()
+                }
+                .fixedSize()
+                Button("Set speed") { prompter.setDuration(minutes * 60) }
+                Spacer()
+                Text("Est. total \(TeleprompterModel.clock(prompter.totalSeconds))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .help("Sets the scroll speed so the script finishes in the chosen time (open the widget once so it can measure the text).")
         }
         .padding(20)
     }
