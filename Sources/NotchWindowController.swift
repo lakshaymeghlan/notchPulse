@@ -13,6 +13,7 @@ final class NotchWindowController {
     private let store: ActivityStore
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
+    private var positionRetries = 0
 
     // Collapsed dimensions match the physical notch exactly (overlaying it);
     // these are the fallback for non-notched Macs.
@@ -21,6 +22,10 @@ final class NotchWindowController {
     // Expanded surface grows wider than the notch and drops downward.
     private let expandedWidth: CGFloat = 380
     private let expandedExtraHeight: CGFloat = 172  // added below the notch strip
+
+    // Cached notch dimensions (NSScreen). Positioning uses CoreGraphics, not
+    // NSScreen, whose frame origin proved unstable across launches/contexts.
+    private var anchorNotch: CGSize = .zero
 
     init(notchState: NotchState, store: ActivityStore) {
         self.notchState = notchState
@@ -95,14 +100,33 @@ final class NotchWindowController {
     }
 
     func show() {
-        publishNotchSize()
-        applyFrame(expanded: notchState.isExpanded, animated: false)
         panel.orderFrontRegardless()
+        positionRetries = 0
+        ensurePositioned()
     }
 
     @objc private func screenParametersChanged() {
-        publishNotchSize()
+        positionRetries = 0
+        ensurePositioned()
+    }
+
+    /// Right after launch the display subsystem can briefly report a missing
+    /// notch and bogus display bounds (the panel lands off-screen). Re-apply the
+    /// frame until the geometry is sane, then stop.
+    private func ensurePositioned() {
+        refreshAnchor()
         applyFrame(expanded: notchState.isExpanded, animated: false)
+
+        let cg = CGDisplayBounds(CGMainDisplayID())
+        let f = panel.frame
+        let onScreen = f.minX >= 0 && f.maxX <= cg.width + 1 && cg.width > 100
+        let notchKnown = anchorNotch.height > 0
+        if (!onScreen || !notchKnown) && positionRetries < 24 {
+            positionRetries += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.ensurePositioned()
+            }
+        }
     }
 
     /// Open the notch for a moment when activity arrives, then collapse if the
@@ -124,10 +148,15 @@ final class NotchWindowController {
 
     // MARK: - Geometry
 
-    /// The screen we live on. Prefer the screen that currently has the notch /
-    /// the main screen; fall back to the first available.
+    /// The screen we live on. Prefer the screen that actually has a notch — it's
+    /// the built-in display we want to attach to and, unlike `NSScreen.main`, it
+    /// stays stable regardless of which window has focus or which context we're
+    /// called from. (Relying on `NSScreen.main` here caused the expanded panel to
+    /// be positioned off-screen when peek ran from a dispatched context.)
     private var targetScreen: NSScreen? {
-        NSScreen.main ?? NSScreen.screens.first
+        NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
     }
 
     /// Physical notch size of the target screen (0×0 ⇒ no notch).
@@ -138,26 +167,35 @@ final class NotchWindowController {
         return CGSize(width: width, height: height)
     }
 
-    private func publishNotchSize() {
-        guard let screen = targetScreen else { return }
-        notchState.notchSize = notchSize(on: screen)
+    /// Cache the notch dimensions (from NSScreen). Positioning uses CoreGraphics
+    /// (see `targetFrame`), which is stable; NSScreen's frame origin proved to
+    /// flap between launches/contexts, throwing the panel off-screen.
+    private func refreshAnchor() {
+        if let screen = targetScreen {
+            anchorNotch = notchSize(on: screen)
+        }
+        notchState.notchSize = anchorNotch
     }
 
-    private func targetFrame(expanded: Bool, on screen: NSScreen) -> NSRect {
-        let full = screen.frame
-        let notch = notchSize(on: screen)
-        let hasNotch = notch.height > 0
+    private func targetFrame(expanded: Bool) -> NSRect {
+        // Position from the main display's CoreGraphics bounds — a stable
+        // top-left-origin rect (main display is always at 0,0). We convert to
+        // Cocoa's bottom-left origin for setFrame.
+        let cg = CGDisplayBounds(CGMainDisplayID())
+        let screenW = cg.width
+        let screenH = cg.height
 
-        let collapsedW = hasNotch ? notch.width : fallbackNotchWidth
-        let collapsedH = hasNotch ? notch.height : fallbackNotchHeight
+        let hasNotch = anchorNotch.height > 0
+        let collapsedW = hasNotch ? anchorNotch.width : fallbackNotchWidth
+        let collapsedH = hasNotch ? anchorNotch.height : fallbackNotchHeight
 
         let width = expanded ? max(expandedWidth, collapsedW) : collapsedW
         let height = expanded ? (collapsedH + expandedExtraHeight) : collapsedH
 
-        // Top edge flush with the very top of the display: the collapsed surface
-        // overlays the hardware notch exactly; expanded grows downward from it.
-        let topY = full.maxY
-        let centerX = full.midX
+        // Centered horizontally on the notch; flush to the very top of the
+        // display (Cocoa top edge == screen height for the main display).
+        let centerX = screenW / 2
+        let topY = screenH
         return NSRect(
             x: (centerX - width / 2).rounded(),
             y: (topY - height).rounded(),
@@ -167,8 +205,7 @@ final class NotchWindowController {
     }
 
     private func applyFrame(expanded: Bool, animated: Bool) {
-        guard let screen = targetScreen else { return }
-        let frame = targetFrame(expanded: expanded, on: screen)
+        let frame = targetFrame(expanded: expanded)
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.22
