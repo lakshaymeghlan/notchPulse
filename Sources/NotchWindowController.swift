@@ -9,13 +9,20 @@ enum NotchMetrics {
     // The host window is a fixed rectangle pinned to the top-center of the
     // display. It must be at least as large as the expanded surface.
     static let windowWidth: CGFloat = 760
-    static let windowHeight: CGFloat = 210
+    static let windowHeight: CGFloat = 280   // room for the floating tab row below
 
     static let expandedWidth: CGFloat = 720
     static let expandedHeight: CGFloat = 196
 
+    // Floating round tab buttons beneath the panel (macnotch-style).
+    static let tabBarGap: CGFloat = 14
+    static let tabButtonSize: CGFloat = 42
+
     static let fallbackNotchWidth: CGFloat = 200
     static let fallbackNotchHeight: CGFloat = 34
+
+    /// Total interactive height when expanded (panel + gap + tab row).
+    static var expandedInteractiveHeight: CGFloat { expandedHeight + tabBarGap + tabButtonSize }
 }
 
 /// Owns the borderless panel hosting the notch UI. The window is a fixed size;
@@ -288,7 +295,8 @@ final class NotchWindowController {
         let hPad: CGFloat = expanded ? 0 : 14
         let vPad: CGFloat = expanded ? 0 : 12
         let w = (expanded ? NotchMetrics.expandedWidth : collapsedW) + hPad
-        let h = (expanded ? NotchMetrics.expandedHeight : collapsedH) + vPad
+        // When expanded, extend the hit region down to cover the floating tab row.
+        let h = (expanded ? NotchMetrics.expandedInteractiveHeight : collapsedH) + vPad
         let x = (NotchMetrics.windowWidth - w) / 2
         let y = NotchMetrics.windowHeight - h
         return NSRect(x: x, y: y, width: w, height: h)

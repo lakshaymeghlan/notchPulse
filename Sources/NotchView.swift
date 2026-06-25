@@ -56,18 +56,26 @@ struct NotchView: View {
 
         ZStack(alignment: .top) {
             Color.clear
-            shape
-                .fill(.black)
-                .overlay {
-                    ZStack {
-                        CompactContent(notchHeight: notchH)
-                            .opacity(expanded ? 0 : 1)
-                        ExpandedDashboard(notchHeight: notchH)
-                            .opacity(expanded ? 1 : 0)
+            VStack(spacing: 0) {
+                shape
+                    .fill(.black)
+                    .overlay {
+                        ZStack {
+                            CompactContent(notchHeight: notchH)
+                                .opacity(expanded ? 0 : 1)
+                            ExpandedDashboard(notchHeight: notchH)
+                                .opacity(expanded ? 1 : 0)
+                        }
+                        .clipShape(shape)
                     }
-                    .clipShape(shape)
+                    .frame(width: w, height: h)
+
+                if expanded {
+                    FloatingTabBar()
+                        .padding(.top, NotchMetrics.tabBarGap)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-                .frame(width: w, height: h)
+            }
         }
         .frame(width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -199,33 +207,8 @@ private struct DashboardTopBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "waveform").font(.system(size: 11, weight: .bold))
-
-            // Visible page switcher (segmented pill).
-            HStack(spacing: 2) {
-                ForEach(Array(pages.pages.enumerated()), id: \.element.id) { index, page in
-                    let selected = index == pages.selectedIndex
-                    Button {
-                        pages.select(index)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: page.icon).font(.system(size: 10, weight: .semibold))
-                            if selected {
-                                Text(page.title).font(.system(size: 10, weight: .semibold))
-                            }
-                        }
-                        .padding(.horizontal, selected ? 9 : 7)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule().fill(.white.opacity(selected ? 0.18 : 0.0))
-                        )
-                        .foregroundStyle(.white.opacity(selected ? 0.95 : 0.5))
-                    }
-                    .buttonStyle(.plain)
-                    .help(page.title)
-                }
-            }
-            .padding(2)
-            .background(Capsule().fill(.white.opacity(0.05)))
+            Text(pages.current.title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
 
             Spacer()
 
@@ -243,6 +226,32 @@ private struct DashboardTopBar: View {
         }
         .foregroundStyle(.white.opacity(0.7))
         .padding(.horizontal, 14)
+    }
+}
+
+/// Round tab buttons floating beneath the panel — switch pages (macnotch-style).
+private struct FloatingTabBar: View {
+    @EnvironmentObject var pages: PagesModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(Array(pages.pages.enumerated()), id: \.element.id) { index, page in
+                let selected = index == pages.selectedIndex
+                Button {
+                    pages.select(index)
+                } label: {
+                    Image(systemName: page.icon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(selected ? .black : .white.opacity(0.9))
+                        .frame(width: NotchMetrics.tabButtonSize, height: NotchMetrics.tabButtonSize)
+                        .background(Circle().fill(selected ? Color.white : Color.black))
+                        .overlay(Circle().stroke(.white.opacity(selected ? 0 : 0.14), lineWidth: 1))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(page.title)
+            }
+        }
     }
 }
 
