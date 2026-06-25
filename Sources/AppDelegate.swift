@@ -5,6 +5,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let notchState = NotchState()
     let store = ActivityStore()
+    let widgetSettings = WidgetSettings()
+    let battery = BatteryMonitor()
+    let shelf = ShelfStore()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
 
@@ -13,7 +16,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // plus .accessory policy keep us out of the Dock and app switcher.
         NSApp.setActivationPolicy(.accessory)
 
-        let controller = NotchWindowController(notchState: notchState, store: store)
+        let controller = NotchWindowController(
+            notchState: notchState,
+            store: store,
+            widgetSettings: widgetSettings,
+            battery: battery,
+            shelf: shelf
+        )
         controller.show()
         windowController = controller
 

@@ -13,6 +13,8 @@ struct NotchPulseApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(appDelegate.widgetSettings)
+                .environmentObject(appDelegate.shelf)
         }
     }
 }
@@ -22,6 +24,10 @@ struct MenuBarContent: View {
     let store: ActivityStore
 
     var body: some View {
+        SettingsLink {
+            Text("Widgets & Settings…")
+        }
+        .keyboardShortcut(",")
         Button("Clear All Activity") {
             store.clearAll()
         }
@@ -34,14 +40,56 @@ struct MenuBarContent: View {
 }
 
 struct SettingsView: View {
+    @EnvironmentObject var widgets: WidgetSettings
+    @EnvironmentObject var shelf: ShelfStore
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("NotchPulse")
-                .font(.headline)
-            Text("Live-activity surface for your MacBook notch.")
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("NotchPulse")
+                    .font(.headline)
+                Text("Pick the widgets that appear when the notch expands.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            GroupBox("Widgets") {
+                VStack(spacing: 0) {
+                    ForEach(WidgetKind.allCases) { kind in
+                        Toggle(isOn: widgets.binding(for: kind)) {
+                            HStack(spacing: 10) {
+                                Image(systemName: kind.systemImage)
+                                    .frame(width: 22)
+                                    .foregroundStyle(.tint)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(kind.title)
+                                    Text(kind.blurb)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .padding(.vertical, 7)
+                        if kind != WidgetKind.allCases.last {
+                            Divider()
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
+            HStack {
+                Button("Clear Shelf") { shelf.clear() }
+                    .disabled(shelf.items.isEmpty)
+                Spacer()
+                Text("Tip: drag files onto the notch to stash them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(20)
-        .frame(width: 360, height: 120)
+        .frame(width: 420)
     }
 }

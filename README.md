@@ -43,7 +43,22 @@ Or just open `NotchPulse.xcodeproj` in Xcode and hit Run.
 > `xcodegen generate` after cloning.
 
 On launch you'll see a waveform icon in the menu bar. The notch surface sits at
-the top-center of your main display; hover it to expand.
+the top-center of your main display; hover it (or wait for activity to peek it
+open) to expand into the widget surface.
+
+## Widgets
+
+When the notch expands it shows a configurable set of widgets — toggle them in
+**Menu bar → Widgets & Settings…**:
+
+- **Clock** — time and date.
+- **Battery** — live charge level and power state (public IOKit API).
+- **Activity** — the live task feed from Claude Code and any tool that posts
+  events (the unique core; see the Event API below).
+- **Shelf** — drag files onto the notch to stash them, then drag them back out
+  or click to open. A quick scratch tray.
+
+New widget? Add a `WidgetKind` case and a SwiftUI view — see `Widgets.swift`.
 
 ---
 

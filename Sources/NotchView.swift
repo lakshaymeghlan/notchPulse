@@ -152,44 +152,82 @@ private struct StatusGlyph: View {
 
 private struct ExpandedCard: View {
     @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var widgets: WidgetSettings
     let notchHeight: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             // Header row sits just under the camera strip.
-            HStack {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.7))
                 Text("NotchPulse")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.7))
                 Spacer()
                 if store.activities.contains(where: { $0.status != .running }) {
                     Button("Clear") { store.clearFinished() }
                         .buttonStyle(.plain)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(.white.opacity(0.55))
                 }
+                SettingsLink {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .buttonStyle(.plain)
             }
 
-            if store.activities.isEmpty {
-                Text("No activity")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.4))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(store.activities) { activity in
-                            ActivityRow(activity: activity)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 10) {
+                    // Clock + Battery share a row.
+                    if widgets.isOn(.clock) || widgets.isOn(.battery) {
+                        HStack(spacing: 10) {
+                            if widgets.isOn(.clock) { ClockWidget() }
+                            if widgets.isOn(.battery) { BatteryWidget() }
                         }
+                    }
+                    if widgets.isOn(.activity) { ActivityWidget() }
+                    if widgets.isOn(.shelf) { ShelfWidget() }
+
+                    if widgets.enabled.isEmpty {
+                        Text("No widgets enabled — open Settings to add some.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.4))
+                            .frame(maxWidth: .infinity, minHeight: 40)
                     }
                 }
             }
         }
         // Clear the camera/sensor strip at the very top, plus side/bottom insets.
-        .padding(.top, max(notchHeight, 28) + 4)
-        .padding(.horizontal, 16)
+        .padding(.top, max(notchHeight, 28) + 6)
+        .padding(.horizontal, 14)
         .padding(.bottom, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// Live activity feed, shown as a widget card.
+private struct ActivityWidget: View {
+    @EnvironmentObject var store: ActivityStore
+
+    var body: some View {
+        WidgetCard(title: "Activity", systemImage: "waveform.path.ecg") {
+            if store.activities.isEmpty {
+                Text("No activity yet. Tools post events here.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(store.activities) { activity in
+                        ActivityRow(activity: activity)
+                    }
+                }
+            }
+        }
     }
 }
 

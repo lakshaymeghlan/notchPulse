@@ -11,6 +11,9 @@ final class NotchWindowController {
     private let panel: NotchPanel
     private let notchState: NotchState
     private let store: ActivityStore
+    private let widgetSettings: WidgetSettings
+    private let battery: BatteryMonitor
+    private let shelf: ShelfStore
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
     private var positionRetries = 0
@@ -20,16 +23,25 @@ final class NotchWindowController {
     private let fallbackNotchWidth: CGFloat = 190
     private let fallbackNotchHeight: CGFloat = 32
     // Expanded surface grows wider than the notch and drops downward.
-    private let expandedWidth: CGFloat = 380
-    private let expandedExtraHeight: CGFloat = 172  // added below the notch strip
+    private let expandedWidth: CGFloat = 460
+    private let expandedExtraHeight: CGFloat = 290  // added below the notch strip
 
     // Cached notch dimensions (NSScreen). Positioning uses CoreGraphics, not
     // NSScreen, whose frame origin proved unstable across launches/contexts.
     private var anchorNotch: CGSize = .zero
 
-    init(notchState: NotchState, store: ActivityStore) {
+    init(
+        notchState: NotchState,
+        store: ActivityStore,
+        widgetSettings: WidgetSettings,
+        battery: BatteryMonitor,
+        shelf: ShelfStore
+    ) {
         self.notchState = notchState
         self.store = store
+        self.widgetSettings = widgetSettings
+        self.battery = battery
+        self.shelf = shelf
 
         let panel = NotchPanel(
             contentRect: NSRect(x: 0, y: 0, width: fallbackNotchWidth, height: fallbackNotchHeight),
@@ -52,6 +64,9 @@ final class NotchWindowController {
         let root = NotchView()
             .environmentObject(notchState)
             .environmentObject(store)
+            .environmentObject(widgetSettings)
+            .environmentObject(battery)
+            .environmentObject(shelf)
         let hosting = NSHostingView(rootView: root)
         // CRITICAL: by default NSHostingView emits Auto Layout constraints from
         // SwiftUI's intrinsic size. Those fight our manual setFrame animation on
@@ -205,6 +220,9 @@ final class NotchWindowController {
     }
 
     private func applyFrame(expanded: Bool, animated: Bool) {
+        // If the notch wasn't measurable yet at launch, try again now (the user
+        // is interacting, so the display subsystem is certainly ready).
+        if anchorNotch.height == 0 { refreshAnchor() }
         let frame = targetFrame(expanded: expanded)
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
