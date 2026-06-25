@@ -1,0 +1,42 @@
+{
+  "//": "NotchPulse — Claude Code hook integration.",
+  "//1": "Copy the \"hooks\" block below into your ~/.claude/settings.json.",
+  "//2": "Replace /ABSOLUTE/PATH/TO with the real path to this repo's integrations/ dir.",
+  "//3": "The hook schema can change between Claude Code versions — verify field",
+  "//4": "names against https://docs.claude.com if events stop showing up.",
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/ABSOLUTE/PATH/TO/integrations/claude-code-hook.sh pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/ABSOLUTE/PATH/TO/integrations/claude-code-hook.sh post"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/ABSOLUTE/PATH/TO/integrations/claude-code-hook.sh stop"
+          }
+        ]
+      }
+    ]
+  }
+}
