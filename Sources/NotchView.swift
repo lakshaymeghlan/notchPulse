@@ -52,7 +52,7 @@ struct NotchView: View {
         let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
         let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
-        let shape = NotchShape(topCornerRadius: 9, bottomCornerRadius: expanded ? 26 : (active ? 14 : 10))
+        let shape = NotchShape(topCornerRadius: 11, bottomCornerRadius: expanded ? 34 : (active ? 16 : 10))
 
         ZStack(alignment: .top) {
             Color.clear
@@ -68,11 +68,10 @@ struct NotchView: View {
                     .clipShape(shape)
                 }
                 .frame(width: w, height: h)
-                .shadow(color: .black.opacity(expanded ? 0.5 : 0), radius: 18, y: 8)
         }
         .frame(width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.snappy(duration: 0.22, extraBounce: 0.04), value: AnimKey(expanded: expanded, active: active))
+        .animation(.snappy(duration: 0.2), value: AnimKey(expanded: expanded, active: active))
     }
 
     private struct AnimKey: Equatable { let expanded: Bool; let active: Bool }

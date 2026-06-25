@@ -127,11 +127,16 @@ final class NotchWindowController {
 
         installPointerMonitors()
 
-        // Peek the notch on new activity.
+        // Peek only on meaningful edges — when an agent STARTS (idle→active) or
+        // FINISHES (→success/failure) — not on every progress update, which made
+        // the notch pop open repeatedly during a session.
         store.onActivity = { [weak self] in
             guard let self else { return }
-            let hasContent = self.store.hasContent
-            DispatchQueue.main.async { self.peek(hasContent: hasContent) }
+            let summary = self.store.summary
+            let shouldPeek = self.peekWorthy(from: self.lastSummary, to: summary)
+            self.lastSummary = summary
+            guard shouldPeek else { return }
+            DispatchQueue.main.async { self.peek(hasContent: self.store.hasContent) }
         }
 
         NotificationCenter.default.addObserver(
@@ -223,6 +228,20 @@ final class NotchWindowController {
         }
     }
 
+    private var lastSummary: ActivityStore.Summary = .idle
+
+    /// Whether a summary transition is worth peeking the notch open.
+    private func peekWorthy(from old: ActivityStore.Summary, to new: ActivityStore.Summary) -> Bool {
+        func finished(_ s: ActivityStore.Summary) -> Bool {
+            if case .success = s { return true }
+            if case .failure = s { return true }
+            return false
+        }
+        if case .idle = old, new != .idle { return true }   // agent started
+        if finished(new) && !finished(old) { return true }   // agent finished
+        return false
+    }
+
     private func peek(hasContent: Bool) {
         guard hasContent else {
             notchState.isPeeking = false
@@ -264,13 +283,15 @@ final class NotchWindowController {
         let active = store.summary != .idle
         let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
 
-        let w = expanded ? NotchMetrics.expandedWidth : collapsedW
-        let h = expanded ? NotchMetrics.expandedHeight : collapsedH
-        // A little vertical tolerance so the hover doesn't drop on the seam.
-        let pad: CGFloat = expanded ? 0 : 4
+        // When collapsed, pad the hit zone (wider + taller) so the cursor
+        // reliably catches it on the first approach.
+        let hPad: CGFloat = expanded ? 0 : 14
+        let vPad: CGFloat = expanded ? 0 : 12
+        let w = (expanded ? NotchMetrics.expandedWidth : collapsedW) + hPad
+        let h = (expanded ? NotchMetrics.expandedHeight : collapsedH) + vPad
         let x = (NotchMetrics.windowWidth - w) / 2
-        let y = NotchMetrics.windowHeight - h - pad
-        return NSRect(x: x, y: y, width: w, height: h + pad)
+        let y = NotchMetrics.windowHeight - h
+        return NSRect(x: x, y: y, width: w, height: h)
     }
 }
 
