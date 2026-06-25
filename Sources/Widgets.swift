@@ -392,28 +392,97 @@ struct CameraSection: View {
     var body: some View {
         NotchSection(title: "Camera", systemImage: "camera") {
             Group {
-                switch camera.state {
-                case .denied:
+                if !camera.isOn {
+                    VStack(spacing: 8) {
+                        Image(systemName: "video.slash.fill").font(.system(size: 18))
+                            .foregroundStyle(.white.opacity(0.5))
+                        Button { camera.toggle() } label: {
+                            Text("Turn on")
+                                .font(.system(size: 11, weight: .semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 5)
+                                .background(Capsule().fill(.white.opacity(0.14)))
+                                .foregroundStyle(.white)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if camera.permission == .denied {
                     VStack(spacing: 4) {
                         Image(systemName: "video.slash").font(.system(size: 16))
-                        Text("Camera access denied").font(.system(size: 10)).multilineTextAlignment(.center)
+                        Text("Access denied").font(.system(size: 10))
                     }
                     .foregroundStyle(.white.opacity(0.45))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                default:
+                } else {
                     CameraPreview(session: camera.session)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay(alignment: .topTrailing) {
+                            Button { camera.toggle() } label: {
+                                Image(systemName: "power")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .padding(5)
+                                    .background(Circle().fill(.black.opacity(0.55)))
+                                    .foregroundStyle(.white)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(5)
+                        }
                 }
             }
         }
-        // Start only while visible & expanded; stop otherwise so the camera
-        // light isn't on needlessly.
-        .onAppear { if notchState.isExpanded { camera.start() } }
-        .onChange(of: notchState.isExpanded) { _, expanded in
-            if expanded { camera.start() } else { camera.stop() }
+        // The session only runs while this section is visible AND the user
+        // turned it on.
+        .onAppear { camera.setVisible(notchState.isExpanded) }
+        .onChange(of: notchState.isExpanded) { _, expanded in camera.setVisible(expanded) }
+        .onDisappear { camera.setVisible(false) }
+    }
+}
+
+// MARK: - Teleprompter
+
+struct TeleprompterSection: View {
+    @EnvironmentObject var prompter: TeleprompterModel
+
+    var body: some View {
+        NotchSection(title: "Teleprompter", systemImage: "text.alignleft") {
+            VStack(alignment: .leading, spacing: 6) {
+                GeometryReader { geo in
+                    Text(prompter.script)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: geo.size.width, alignment: .topLeading)
+                        .background(
+                            GeometryReader { textGeo in
+                                Color.clear.onChange(of: prompter.offset) { _, _ in
+                                    prompter.clamp(contentHeight: textGeo.size.height, viewport: geo.size.height)
+                                }
+                            }
+                        )
+                        .offset(y: -prompter.offset)
+                        .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                        .clipped()
+                }
+                HStack(spacing: 14) {
+                    Button { prompter.togglePlay() } label: {
+                        Image(systemName: prompter.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    Button { prompter.reset() } label: {
+                        Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .semibold))
+                    }
+                    Spacer()
+                    Button { prompter.slower() } label: { Image(systemName: "minus") }
+                    Text("\(Int(prompter.speed))").font(.system(size: 10, weight: .medium)).monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.7))
+                    Button { prompter.faster() } label: { Image(systemName: "plus") }
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .buttonStyle(.plain)
+            }
         }
-        .onDisappear { camera.stop() }
     }
 }
 

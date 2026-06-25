@@ -16,6 +16,7 @@ struct NotchPulseApp: App {
                 .environmentObject(appDelegate.widgetSettings)
                 .environmentObject(appDelegate.shelf)
                 .environmentObject(appDelegate.pages)
+                .environmentObject(appDelegate.teleprompter)
         }
     }
 }
@@ -40,9 +41,44 @@ struct MenuBarContent: View {
     }
 }
 
+struct SettingsView: View {
+    var body: some View {
+        TabView {
+            WidgetsSettings()
+                .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+            TeleprompterSettings()
+                .tabItem { Label("Teleprompter", systemImage: "text.alignleft") }
+        }
+        .frame(width: 480, height: 560)
+    }
+}
+
+/// Edit the teleprompter script and speed.
+struct TeleprompterSettings: View {
+    @EnvironmentObject var prompter: TeleprompterModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Teleprompter script").font(.headline)
+            Text("This text scrolls in the Teleprompter widget. Use it on the Studio page.")
+                .font(.subheadline).foregroundStyle(.secondary)
+            TextEditor(text: $prompter.script)
+                .font(.system(size: 13))
+                .frame(minHeight: 320)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.3)))
+            HStack {
+                Text("Speed").foregroundStyle(.secondary)
+                Slider(value: $prompter.speed, in: 10...120)
+                Text("\(Int(prompter.speed)) pt/s").monospacedDigit().frame(width: 64, alignment: .trailing)
+            }
+        }
+        .padding(20)
+    }
+}
+
 /// Per-page widget editor: pick a page, then check/uncheck and drag-reorder the
 /// widgets that appear on it. This is the "edit / add any widget" surface.
-struct SettingsView: View {
+struct WidgetsSettings: View {
     @EnvironmentObject var pages: PagesModel
     @EnvironmentObject var shelf: ShelfStore
     @State private var pageIndex = 0

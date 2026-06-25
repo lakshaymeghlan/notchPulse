@@ -9,30 +9,59 @@ import SwiftUI
 final class CameraController: ObservableObject {
     let session = AVCaptureSession()
 
-    enum State { case idle, authorized, denied }
-    @Published private(set) var state: State = .idle
+    enum Permission { case unknown, authorized, denied }
+    /// User intent — off by default; the camera light never turns on until the
+    /// user explicitly turns it on.
+    @Published private(set) var isOn = false
+    @Published private(set) var permission: Permission = .unknown
 
+    private var visible = false
     private var configured = false
     private let sessionQueue = DispatchQueue(label: "io.notchpulse.camera")
 
-    func start() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            state = .authorized
-            configureAndRun()
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                Task { @MainActor in
-                    self.state = granted ? .authorized : .denied
-                    if granted { self.configureAndRun() }
-                }
-            }
-        default:
-            state = .denied
+    /// Turn the camera on/off (user action).
+    func toggle() {
+        isOn.toggle()
+        if isOn, permission == .unknown {
+            requestPermission()
+        } else {
+            apply()
         }
     }
 
-    func stop() {
+    /// Section visibility (expanded + on screen). The session only runs while
+    /// visible, so the camera releases when you collapse or switch pages.
+    func setVisible(_ v: Bool) {
+        guard visible != v else { return }
+        visible = v
+        apply()
+    }
+
+    private func requestPermission() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            permission = .authorized; apply()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                Task { @MainActor in
+                    self.permission = granted ? .authorized : .denied
+                    self.apply()
+                }
+            }
+        default:
+            permission = .denied
+        }
+    }
+
+    private func apply() {
+        if isOn, visible, permission == .authorized {
+            configureAndRun()
+        } else {
+            stop()
+        }
+    }
+
+    private func stop() {
         guard configured else { return }
         sessionQueue.async { [session] in
             if session.isRunning { session.stopRunning() }

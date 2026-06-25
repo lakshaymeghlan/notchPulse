@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let camera = CameraController()
     let calendar = CalendarMonitor()
     let music = NowPlayingMonitor()
+    let teleprompter = TeleprompterModel()
     let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
@@ -33,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             camera: camera,
             calendar: calendar,
             music: music,
+            teleprompter: teleprompter,
             pages: pages
         )
         controller.show()
