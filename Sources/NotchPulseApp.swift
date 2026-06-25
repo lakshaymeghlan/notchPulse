@@ -78,6 +78,14 @@ struct TeleprompterSettings: View {
 
             Divider()
 
+            // Text size.
+            HStack {
+                Image(systemName: "textformat.size.smaller").foregroundStyle(.secondary)
+                Slider(value: $prompter.fontSize, in: 10...40)
+                Image(systemName: "textformat.size.larger").foregroundStyle(.secondary)
+                Text("\(Int(prompter.fontSize)) pt").monospacedDigit().frame(width: 64, alignment: .trailing)
+            }
+
             // Manual speed.
             HStack {
                 Image(systemName: "tortoise.fill").foregroundStyle(.secondary)

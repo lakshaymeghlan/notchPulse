@@ -447,9 +447,10 @@ struct TeleprompterSection: View {
     var body: some View {
         NotchSection(title: "Teleprompter", systemImage: "text.alignleft") {
             VStack(alignment: .leading, spacing: 6) {
+                // Scrolling script (flexible height).
                 GeometryReader { geo in
                     Text(prompter.script)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: prompter.fontSize, weight: .medium))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
                         .lineSpacing(2)
@@ -466,38 +467,62 @@ struct TeleprompterSection: View {
                         .offset(y: -prompter.offset)
                         .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                         .clipped()
+                        .allowsHitTesting(false)   // never let the text eat control taps
                 }
+                .frame(maxHeight: .infinity)
 
-                HStack(spacing: 12) {
-                    Button { prompter.togglePlay() } label: {
-                        Image(systemName: prompter.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    Button { prompter.reset() } label: {
-                        Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .semibold))
-                    }
-                    // Live timer: elapsed / total.
-                    Text("\(TeleprompterModel.clock(prompter.elapsed)) / \(TeleprompterModel.clock(prompter.totalSeconds))")
-                        .font(.system(size: 10, weight: .medium)).monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.6))
+                // Controls — fixed row, generous tap targets.
+                HStack(spacing: 4) {
+                    PrompterControl(prompter.isPlaying ? "pause.fill" : "play.fill") { prompter.togglePlay() }
+                    PrompterControl("arrow.counterclockwise") { prompter.reset() }
 
-                    Spacer()
+                    Spacer(minLength: 2)
 
-                    Button { prompter.slower() } label: { Image(systemName: "tortoise.fill").font(.system(size: 11)) }
-                    Text("\(Int(prompter.speed))").font(.system(size: 10, weight: .medium)).monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.7)).frame(width: 22)
-                    Button { prompter.faster() } label: { Image(systemName: "hare.fill").font(.system(size: 11)) }
+                    // Text size.
+                    PrompterControl("textformat.size.smaller") { prompter.smallerText() }
+                    PrompterControl("textformat.size.larger") { prompter.biggerText() }
+
+                    Divider().frame(height: 16).overlay(.white.opacity(0.2))
+
+                    // Scroll speed.
+                    PrompterControl("tortoise.fill") { prompter.slower() }
+                    Text("\(Int(prompter.speed))")
+                        .font(.system(size: 10, weight: .bold)).monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.85)).frame(width: 22)
+                    PrompterControl("hare.fill") { prompter.faster() }
 
                     SettingsLink {
-                        Image(systemName: "pencil").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(width: 26, height: 24)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .help("Edit script")
                 }
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
-                .buttonStyle(.plain)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+/// A teleprompter control button with a large, reliable tap area.
+private struct PrompterControl: View {
+    let icon: String
+    let action: () -> Void
+    init(_ icon: String, action: @escaping () -> Void) { self.icon = icon; self.action = action }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 26, height: 24)
+                .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(0.12)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

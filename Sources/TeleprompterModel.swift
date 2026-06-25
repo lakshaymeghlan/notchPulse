@@ -7,9 +7,11 @@ import SwiftUI
 final class TeleprompterModel: ObservableObject {
     private let scriptKey = "teleprompter.script"
     private let speedKey = "teleprompter.speed"
+    private let fontKey = "teleprompter.fontSize"
 
     @Published var script: String { didSet { UserDefaults.standard.set(script, forKey: scriptKey) } }
     @Published var speed: Double { didSet { UserDefaults.standard.set(speed, forKey: speedKey) } }   // pts/sec
+    @Published var fontSize: Double { didSet { UserDefaults.standard.set(fontSize, forKey: fontKey) } }
     @Published private(set) var isPlaying = false
     @Published private(set) var offset: CGFloat = 0
     @Published private(set) var elapsed: Double = 0   // seconds of playback
@@ -25,6 +27,8 @@ final class TeleprompterModel: ObservableObject {
         script = UserDefaults.standard.string(forKey: scriptKey) ?? Self.placeholder
         let s = UserDefaults.standard.double(forKey: speedKey)
         speed = s > 0 ? s : 35
+        let f = UserDefaults.standard.double(forKey: fontKey)
+        fontSize = f > 0 ? f : 16
     }
 
     deinit { timer?.invalidate() }
@@ -79,6 +83,9 @@ final class TeleprompterModel: ObservableObject {
 
     func slower() { speed = max(8, speed - 8) }
     func faster() { speed = min(200, speed + 8) }
+
+    func smallerText() { fontSize = max(10, fontSize - 2) }
+    func biggerText() { fontSize = min(40, fontSize + 2) }
 
     /// Set the speed so the whole script scrolls past in `seconds`.
     func setDuration(_ seconds: Double) {
