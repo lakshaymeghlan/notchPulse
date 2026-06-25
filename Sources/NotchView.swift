@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The notch silhouette: square top flush with the bezel, rounded bottom — the
-/// hardware-notch shape, with small inner top fillets like macnotch.
+/// The notch silhouette: square top flush with the bezel, rounded bottom.
 struct NotchShape: Shape {
     var topCornerRadius: CGFloat
     var bottomCornerRadius: CGFloat
@@ -32,18 +31,28 @@ struct NotchShape: Shape {
     }
 }
 
+/// Shared sizing so the view and the window controller agree on the shape rect.
+enum NotchLayout {
+    static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
+        // Compact (Dynamic-Island-style) when there's activity, else exact notch.
+        active ? min(notchWidth + 230, NotchMetrics.expandedWidth) : notchWidth
+    }
+}
+
 struct NotchView: View {
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var store: ActivityStore
 
     private var expanded: Bool { notchState.isExpanded }
+    private var active: Bool { store.summary != .idle }
 
     var body: some View {
         let notchW = notchState.notchSize.width  > 0 ? notchState.notchSize.width  : NotchMetrics.fallbackNotchWidth
         let notchH = notchState.notchSize.height > 0 ? notchState.notchSize.height : NotchMetrics.fallbackNotchHeight
-        let w = expanded ? NotchMetrics.expandedWidth  : notchW
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
+        let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
-        let shape = NotchShape(topCornerRadius: 9, bottomCornerRadius: expanded ? 26 : 10)
+        let shape = NotchShape(topCornerRadius: 9, bottomCornerRadius: expanded ? 26 : (active ? 14 : 10))
 
         ZStack(alignment: .top) {
             Color.clear
@@ -51,7 +60,7 @@ struct NotchView: View {
                 .fill(.black)
                 .overlay {
                     ZStack {
-                        CollapsedContent(notchHeight: notchH)
+                        CompactContent(notchHeight: notchH)
                             .opacity(expanded ? 0 : 1)
                         ExpandedDashboard(notchHeight: notchH)
                             .opacity(expanded ? 1 : 0)
@@ -63,43 +72,64 @@ struct NotchView: View {
         }
         .frame(width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.36, dampingFraction: 0.82), value: expanded)
+        .animation(.spring(response: 0.34, dampingFraction: 0.84), value: AnimKey(expanded: expanded, active: active))
     }
+
+    private struct AnimKey: Equatable { let expanded: Bool; let active: Bool }
 }
 
-// MARK: - Collapsed (exact notch; status in the "ears")
+// MARK: - Collapsed / compact (Dynamic-Island-style live activity)
 
-private struct CollapsedContent: View {
+private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
     let notchHeight: CGFloat
 
     var body: some View {
-        Group {
-            switch store.summary {
-            case .idle:
-                Color.clear
-            default:
-                HStack(spacing: 0) {
-                    StatusGlyph(summary: store.summary, size: 12)
-                        .frame(maxWidth: .infinity)
-                    Spacer(minLength: 86)
-                    Text(rightLabel)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
-                        .frame(maxWidth: .infinity)
-                }
-                .padding(.horizontal, 14)
+        switch store.summary {
+        case .idle:
+            Color.clear
+        default:
+            HStack(spacing: 8) {
+                StatusGlyph(summary: store.summary, size: 13)
+                Text(leadingLabel)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 78)   // clear the camera
+                Text(trailingLabel)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(trailingColor)
+                    .monospacedDigit()
+                    .lineLimit(1)
             }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var rightLabel: String {
+    private var latest: Activity? { store.activities.first(where: { $0.status == .running }) ?? store.activities.first }
+
+    private var leadingLabel: String {
+        guard let a = latest else { return "" }
+        return a.source ?? a.title
+    }
+
+    private var trailingLabel: String {
         switch store.summary {
-        case .running(let n): return n > 1 ? "\(n)" : ""
-        case .failure(let n): return n > 1 ? "\(n)" : ""
-        default: return ""
+        case .running:
+            if let p = latest?.progress { return "\(Int(p * 100))%" }
+            return "Running"
+        case .success: return "Done"
+        case .failure: return "Failed"
+        case .idle: return ""
+        }
+    }
+
+    private var trailingColor: Color {
+        switch store.summary {
+        case .success: return .green
+        case .failure: return .red
+        default: return .white.opacity(0.7)
         }
     }
 }
@@ -130,14 +160,13 @@ private struct ExpandedDashboard: View {
     let notchHeight: CGFloat
 
     private var sections: [WidgetKind] {
-        // Current page's widgets, minus any the user disabled globally.
         pages.current.widgets.filter { widgets.isOn($0) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             DashboardTopBar()
-                .frame(height: max(notchHeight, 30))
+                .frame(height: max(notchHeight, 32))
 
             Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
 
@@ -159,12 +188,11 @@ private struct ExpandedDashboard: View {
                     }
                 }
             }
-            // Cross-fade when switching pages.
             .id(pages.current.id)
-            .transition(.opacity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.easeInOut(duration: 0.22), value: pages.selectedIndex)
+        .padding(.horizontal, 6)
+        .animation(.easeInOut(duration: 0.2), value: pages.selectedIndex)
     }
 }
 
@@ -174,33 +202,36 @@ private struct DashboardTopBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "waveform")
-                .font(.system(size: 11, weight: .bold))
-            Text(pages.current.title)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .contentTransition(.identity)
+            Image(systemName: "waveform").font(.system(size: 11, weight: .bold))
 
-            Spacer()
-
-            // Page tabs — switch sections.
-            HStack(spacing: 4) {
+            // Visible page switcher (segmented pill).
+            HStack(spacing: 2) {
                 ForEach(Array(pages.pages.enumerated()), id: \.element.id) { index, page in
+                    let selected = index == pages.selectedIndex
                     Button {
                         pages.select(index)
                     } label: {
-                        Image(systemName: page.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                            .frame(width: 24, height: 20)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(.white.opacity(index == pages.selectedIndex ? 0.16 : 0))
-                            )
-                            .foregroundStyle(.white.opacity(index == pages.selectedIndex ? 0.95 : 0.45))
+                        HStack(spacing: 4) {
+                            Image(systemName: page.icon).font(.system(size: 10, weight: .semibold))
+                            if selected {
+                                Text(page.title).font(.system(size: 10, weight: .semibold))
+                            }
+                        }
+                        .padding(.horizontal, selected ? 9 : 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule().fill(.white.opacity(selected ? 0.18 : 0.0))
+                        )
+                        .foregroundStyle(.white.opacity(selected ? 0.95 : 0.5))
                     }
                     .buttonStyle(.plain)
                     .help(page.title)
                 }
             }
+            .padding(2)
+            .background(Capsule().fill(.white.opacity(0.05)))
+
+            Spacer()
 
             if store.activities.contains(where: { $0.status != .running }) {
                 Button("Clear") { store.clearFinished() }
@@ -215,11 +246,10 @@ private struct DashboardTopBar: View {
             .foregroundStyle(.white.opacity(0.5))
         }
         .foregroundStyle(.white.opacity(0.7))
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
     }
 }
 
-/// Routes a widget kind to its section view.
 private struct SectionView: View {
     let kind: WidgetKind
 
@@ -229,6 +259,7 @@ private struct SectionView: View {
         case .agent:    AgentSection()
         case .battery:  BatterySection()
         case .apps:     OpenAppsSection()
+        case .windows:  OpenWindowsSection()
         case .shelf:    ShelfSection()
         case .camera:   CameraSection()
         case .calendar: CalendarSection()

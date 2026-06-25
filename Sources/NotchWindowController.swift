@@ -32,6 +32,9 @@ final class NotchWindowController {
     private let battery: BatteryMonitor
     private let shelf: ShelfStore
     private let openApps: OpenAppsMonitor
+    private let windows: WindowsMonitor
+    private let camera: CameraController
+    private let calendar: CalendarMonitor
     private let pages: PagesModel
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
@@ -45,6 +48,9 @@ final class NotchWindowController {
         battery: BatteryMonitor,
         shelf: ShelfStore,
         openApps: OpenAppsMonitor,
+        windows: WindowsMonitor,
+        camera: CameraController,
+        calendar: CalendarMonitor,
         pages: PagesModel
     ) {
         self.notchState = notchState
@@ -53,6 +59,9 @@ final class NotchWindowController {
         self.battery = battery
         self.shelf = shelf
         self.openApps = openApps
+        self.windows = windows
+        self.camera = camera
+        self.calendar = calendar
         self.pages = pages
 
         let panel = NotchPanel(
@@ -86,6 +95,9 @@ final class NotchWindowController {
             .environmentObject(battery)
             .environmentObject(shelf)
             .environmentObject(openApps)
+            .environmentObject(windows)
+            .environmentObject(camera)
+            .environmentObject(calendar)
             .environmentObject(pages)
         let hosting = NSHostingView(rootView: root)
         hosting.sizingOptions = []
@@ -239,8 +251,10 @@ final class NotchWindowController {
     private func currentShapeRect() -> NSRect {
         let expanded = notchState.isExpanded
         let hasNotch = anchorNotch.height > 0
-        let collapsedW = hasNotch ? anchorNotch.width : NotchMetrics.fallbackNotchWidth
+        let notchW = hasNotch ? anchorNotch.width : NotchMetrics.fallbackNotchWidth
         let collapsedH = hasNotch ? anchorNotch.height : NotchMetrics.fallbackNotchHeight
+        let active = store.summary != .idle
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
 
         let w = expanded ? NotchMetrics.expandedWidth : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : collapsedH

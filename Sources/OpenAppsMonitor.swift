@@ -45,4 +45,9 @@ final class OpenAppsMonitor: ObservableObject {
                 isActive: $0.isActive)
         }
     }
+
+    func activate(_ app: App) {
+        NSRunningApplication(processIdentifier: app.id)?
+            .activate(options: [.activateAllWindows])
+    }
 }

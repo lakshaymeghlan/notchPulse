@@ -21,9 +21,9 @@ final class PagesModel: ObservableObject {
             NotchPage(id: "dashboard", title: "Dashboard", icon: "square.grid.2x2",
                       widgets: [.clock, .agent, .battery, .apps]),
             NotchPage(id: "focus", title: "Focus", icon: "scope",
-                      widgets: [.clock, .calendar, .agent, .shelf]),
+                      widgets: [.clock, .calendar, .agent, .windows]),
             NotchPage(id: "media", title: "Media", icon: "play.circle",
-                      widgets: [.clock, .camera, .battery]),
+                      widgets: [.clock, .camera, .battery, .shelf]),
         ]
     }
 

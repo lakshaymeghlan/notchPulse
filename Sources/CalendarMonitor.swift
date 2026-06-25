@@ -1,0 +1,83 @@
+import EventKit
+import Combine
+import Foundation
+
+/// Reads the user's upcoming events via EventKit. Access is requested lazily
+/// (only when the Calendar widget is shown), never at launch.
+@MainActor
+final class CalendarMonitor: ObservableObject {
+    struct Item: Identifiable {
+        let id: String
+        let title: String
+        let start: Date
+        let isAllDay: Bool
+        let color: CGColor?
+    }
+
+    enum Access { case unknown, granted, denied }
+
+    @Published private(set) var access: Access = .unknown
+    @Published private(set) var events: [Item] = []
+
+    private let store = EKEventStore()
+    private var timer: Timer?
+
+    init() { refreshAuthorization() }
+
+    deinit { timer?.invalidate() }
+
+    private func refreshAuthorization() {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        switch status {
+        case .fullAccess, .authorized:
+            access = .granted
+            load()
+            startTimer()
+        case .denied, .restricted:
+            access = .denied
+        default:
+            access = .unknown
+        }
+    }
+
+    /// Ask for access (drives the system prompt the first time).
+    func requestAccess() {
+        let handler: (Bool, Error?) -> Void = { granted, _ in
+            Task { @MainActor in
+                self.access = granted ? .granted : .denied
+                if granted { self.load(); self.startTimer() }
+            }
+        }
+        if #available(macOS 14.0, *) {
+            store.requestFullAccessToEvents(completion: handler)
+        } else {
+            store.requestAccess(to: .event, completion: handler)
+        }
+    }
+
+    func load() {
+        let cal = Calendar.current
+        let now = Date()
+        guard let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) else { return }
+        let predicate = store.predicateForEvents(withStart: now, end: end, calendars: nil)
+        events = store.events(matching: predicate)
+            .sorted { $0.startDate < $1.startDate }
+            .prefix(4)
+            .map {
+                Item(id: $0.eventIdentifier ?? UUID().uuidString,
+                     title: $0.title ?? "Event",
+                     start: $0.startDate,
+                     isAllDay: $0.isAllDay,
+                     color: $0.calendar?.cgColor)
+            }
+    }
+
+    private func startTimer() {
+        timer?.invalidate()
+        let t = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.load() }
+        }
+        t.tolerance = 30
+        timer = t
+    }
+}

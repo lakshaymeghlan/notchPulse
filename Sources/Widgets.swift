@@ -35,16 +35,22 @@ struct ClockSection: View {
             NotchSection(title: "Clock", systemImage: "clock") {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(ctx.date, format: .dateTime.hour().minute())
-                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(ctx.date, format: .dateTime.weekday(.wide))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(1)
                     Text(ctx.date, format: .dateTime.month(.wide).day())
                         .font(.system(size: 11))
                         .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -164,7 +170,7 @@ struct BatterySection: View {
 struct OpenAppsSection: View {
     @EnvironmentObject var openApps: OpenAppsMonitor
 
-    private let columns = [GridItem(.adaptive(minimum: 34), spacing: 6)]
+    private let columns = [GridItem(.adaptive(minimum: 36), spacing: 6)]
 
     var body: some View {
         NotchSection(title: "Open Apps", systemImage: "square.grid.2x2") {
@@ -172,16 +178,71 @@ struct OpenAppsSection: View {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
                     ForEach(openApps.apps) { app in
                         if let icon = app.icon {
-                            Image(nsImage: icon)
-                                .resizable()
-                                .frame(width: 28, height: 28)
-                                .opacity(app.isActive ? 1 : 0.7)
-                                .help(app.name)
+                            Button {
+                                openApps.activate(app)
+                            } label: {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .frame(width: 30, height: 30)
+                                    .opacity(app.isActive ? 1 : 0.65)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Focus \(app.name)")
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// MARK: - Open windows
+
+struct OpenWindowsSection: View {
+    @EnvironmentObject var windows: WindowsMonitor
+
+    var body: some View {
+        NotchSection(title: "Open Windows", systemImage: "macwindow.on.rectangle") {
+            if windows.windows.isEmpty {
+                Text("No windows").font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(windows.windows) { win in
+                            Button {
+                                windows.activate(win)
+                            } label: {
+                                HStack(spacing: 7) {
+                                    if let icon = win.icon {
+                                        Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+                                    }
+                                    Text(win.title)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.white.opacity(0.85))
+                                        .lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(win.appName)
+                        }
+                        if !windows.canReadTitles {
+                            Button {
+                                windows.requestTitleAccess()
+                            } label: {
+                                Text("Enable titles…")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.blue)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Grant Screen Recording to show window titles")
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear { windows.startPolling() }
+        .onDisappear { windows.stopPolling() }
     }
 }
 
@@ -262,20 +323,87 @@ private struct ShelfChip: View {
     }
 }
 
-// MARK: - Stage B placeholders (Camera / Calendar)
+// MARK: - Camera mirror
 
 struct CameraSection: View {
+    @EnvironmentObject var camera: CameraController
+    @EnvironmentObject var notchState: NotchState
+
     var body: some View {
         NotchSection(title: "Camera", systemImage: "camera") {
-            Text("Coming next").font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+            Group {
+                switch camera.state {
+                case .denied:
+                    VStack(spacing: 4) {
+                        Image(systemName: "video.slash").font(.system(size: 16))
+                        Text("Camera access denied").font(.system(size: 10)).multilineTextAlignment(.center)
+                    }
+                    .foregroundStyle(.white.opacity(0.45))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                default:
+                    CameraPreview(session: camera.session)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
         }
+        // Start only while visible & expanded; stop otherwise so the camera
+        // light isn't on needlessly.
+        .onAppear { if notchState.isExpanded { camera.start() } }
+        .onChange(of: notchState.isExpanded) { _, expanded in
+            if expanded { camera.start() } else { camera.stop() }
+        }
+        .onDisappear { camera.stop() }
     }
 }
 
+// MARK: - Calendar
+
 struct CalendarSection: View {
+    @EnvironmentObject var calendar: CalendarMonitor
+
     var body: some View {
         NotchSection(title: "Calendar", systemImage: "calendar") {
-            Text("Coming next").font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+            switch calendar.access {
+            case .denied:
+                Text("Calendar access denied")
+                    .font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
+            case .unknown:
+                Button {
+                    calendar.requestAccess()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "calendar.badge.plus").font(.system(size: 11))
+                        Text("Show my events").font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+            case .granted:
+                if calendar.events.isEmpty {
+                    Text("Nothing left today")
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
+                } else {
+                    VStack(alignment: .leading, spacing: 7) {
+                        ForEach(calendar.events) { ev in
+                            HStack(spacing: 7) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(ev.color.map { Color(cgColor: $0) } ?? .blue)
+                                    .frame(width: 3, height: 26)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(ev.title)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(.white).lineLimit(1)
+                                    Text(ev.isAllDay ? "All day" : ev.start.formatted(date: .omitted, time: .shortened))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white.opacity(0.55))
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
