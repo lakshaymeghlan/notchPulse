@@ -72,7 +72,7 @@ struct NotchView: View {
         }
         .frame(width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.34, dampingFraction: 0.84), value: AnimKey(expanded: expanded, active: active))
+        .animation(.snappy(duration: 0.22, extraBounce: 0.04), value: AnimKey(expanded: expanded, active: active))
     }
 
     private struct AnimKey: Equatable { let expanded: Bool; let active: Bool }
@@ -155,13 +155,10 @@ struct StatusGlyph: View {
 // MARK: - Expanded dashboard (top bar + horizontal sections)
 
 private struct ExpandedDashboard: View {
-    @EnvironmentObject var widgets: WidgetSettings
     @EnvironmentObject var pages: PagesModel
     let notchHeight: CGFloat
 
-    private var sections: [WidgetKind] {
-        pages.current.widgets.filter { widgets.isOn($0) }
-    }
+    private var sections: [WidgetKind] { pages.current.widgets }
 
     var body: some View {
         VStack(spacing: 0) {

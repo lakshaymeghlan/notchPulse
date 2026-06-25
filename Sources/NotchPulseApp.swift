@@ -15,6 +15,7 @@ struct NotchPulseApp: App {
             SettingsView()
                 .environmentObject(appDelegate.widgetSettings)
                 .environmentObject(appDelegate.shelf)
+                .environmentObject(appDelegate.pages)
         }
     }
 }
@@ -39,57 +40,80 @@ struct MenuBarContent: View {
     }
 }
 
+/// Per-page widget editor: pick a page, then check/uncheck and drag-reorder the
+/// widgets that appear on it. This is the "edit / add any widget" surface.
 struct SettingsView: View {
-    @EnvironmentObject var widgets: WidgetSettings
+    @EnvironmentObject var pages: PagesModel
     @EnvironmentObject var shelf: ShelfStore
+    @State private var pageIndex = 0
+
+    private var page: NotchPage { pages.pages[min(pageIndex, pages.pages.count - 1)] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("NotchPulse")
-                    .font(.headline)
-                Text("Pick the widgets that appear when the notch expands.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text("Edit widgets").font(.headline)
+                Text("Choose which widgets show on each page. Drag to reorder; they appear left-to-right.")
+                    .font(.subheadline).foregroundStyle(.secondary)
             }
 
-            GroupBox("Widgets") {
-                VStack(spacing: 0) {
-                    ForEach(WidgetKind.allCases) { kind in
-                        Toggle(isOn: widgets.binding(for: kind)) {
-                            HStack(spacing: 10) {
-                                Image(systemName: kind.systemImage)
-                                    .frame(width: 22)
-                                    .foregroundStyle(.tint)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(kind.title)
-                                    Text(kind.blurb)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .padding(.vertical, 7)
-                        if kind != WidgetKind.allCases.last {
-                            Divider()
+            Picker("Page", selection: $pageIndex) {
+                ForEach(Array(pages.pages.enumerated()), id: \.element.id) { i, p in
+                    Label(p.title, systemImage: p.icon).tag(i)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            // Widgets currently on this page — reorderable & removable.
+            List {
+                Section("On this page") {
+                    ForEach(page.widgets, id: \.self) { kind in
+                        HStack(spacing: 10) {
+                            Image(systemName: kind.systemImage).frame(width: 20).foregroundStyle(.tint)
+                            Text(kind.title)
+                            Spacer()
+                            Button {
+                                pages.setWidget(kind, onPage: page.id, included: false)
+                            } label: { Image(systemName: "minus.circle.fill").foregroundStyle(.red) }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .onMove { pages.moveWidgets(onPage: page.id, from: $0, to: $1) }
+
+                    if page.widgets.isEmpty {
+                        Text("No widgets yet — add some below.").foregroundStyle(.secondary).font(.caption)
+                    }
                 }
-                .padding(.horizontal, 4)
+
+                Section("Available widgets") {
+                    ForEach(WidgetKind.allCases.filter { !page.widgets.contains($0) }) { kind in
+                        Button {
+                            pages.setWidget(kind, onPage: page.id, included: true)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: kind.systemImage).frame(width: 20).foregroundStyle(.secondary)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(kind.title).foregroundStyle(.primary)
+                                    Text(kind.blurb).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "plus.circle.fill").foregroundStyle(.green)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
+            .frame(minHeight: 280)
 
             HStack {
-                Button("Clear Shelf") { shelf.clear() }
-                    .disabled(shelf.items.isEmpty)
+                Button("Reset Pages") { pages.resetToDefaults(); pageIndex = 0 }
+                Button("Clear Shelf") { shelf.clear() }.disabled(shelf.items.isEmpty)
                 Spacer()
-                Text("Tip: drag files onto the notch to stash them.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Tip: hover the notch to open it.").font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(20)
-        .frame(width: 420)
+        .frame(width: 460, height: 520)
     }
 }

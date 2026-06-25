@@ -74,9 +74,10 @@ final class WidgetSettings: ObservableObject {
         if let raw = UserDefaults.standard.array(forKey: defaultsKey) as? [String] {
             enabled = Set(raw.compactMap(WidgetKind.init(rawValue:)))
         } else {
-            // Sensible, permission-free defaults on first run. Camera & Calendar
-            // are off by default so we never prompt unless the user opts in.
-            enabled = [.clock, .agent, .battery, .apps, .windows]
+            // On by default. Calendar & Music only do work (and prompt for
+            // permission) once their page is actually viewed; Camera stays off
+            // until explicitly enabled.
+            enabled = [.clock, .agent, .battery, .apps, .windows, .calendar, .music]
         }
     }
 

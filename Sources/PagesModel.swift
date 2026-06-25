@@ -1,31 +1,41 @@
 import SwiftUI
 
 /// A switchable page ("section") of the dashboard — a named tab with its own
-/// ordered set of widgets. The user flips between these from the top bar.
-struct NotchPage: Identifiable, Equatable {
-    let id: String
-    let title: String
-    let icon: String
-    let widgets: [WidgetKind]
+/// ordered set of widgets.
+struct NotchPage: Identifiable, Equatable, Codable {
+    var id: String
+    var title: String
+    var icon: String
+    var widgets: [WidgetKind]
 }
 
-/// Holds the available pages and the current selection. Defaults ship a few
-/// curated pages; widgets still respect the per-widget toggles in Settings.
+/// Holds the editable pages and the current selection. Pages persist to
+/// UserDefaults so edits survive relaunches.
 @MainActor
 final class PagesModel: ObservableObject {
-    @Published var pages: [NotchPage]
+    private let defaultsKey = "notchPages.v1"
+
+    @Published var pages: [NotchPage] { didSet { persist() } }
     @Published var selectedIndex: Int = 0
 
     init() {
-        pages = [
-            NotchPage(id: "dashboard", title: "Dashboard", icon: "square.grid.2x2",
-                      widgets: [.clock, .agent, .battery, .apps]),
-            NotchPage(id: "focus", title: "Focus", icon: "scope",
-                      widgets: [.clock, .calendar, .agent, .windows]),
-            NotchPage(id: "media", title: "Media", icon: "play.circle",
-                      widgets: [.clock, .music, .camera, .shelf]),
-        ]
+        if let data = UserDefaults.standard.data(forKey: defaultsKey),
+           let decoded = try? JSONDecoder().decode([NotchPage].self, from: data),
+           !decoded.isEmpty {
+            pages = decoded
+        } else {
+            pages = PagesModel.defaultPages
+        }
     }
+
+    static let defaultPages: [NotchPage] = [
+        NotchPage(id: "dashboard", title: "Dashboard", icon: "square.grid.2x2",
+                  widgets: [.clock, .agent, .battery, .apps]),
+        NotchPage(id: "focus", title: "Focus", icon: "scope",
+                  widgets: [.clock, .calendar, .agent, .windows]),
+        NotchPage(id: "media", title: "Media", icon: "play.circle",
+                  widgets: [.clock, .music, .camera, .shelf]),
+    ]
 
     var current: NotchPage {
         pages[min(max(selectedIndex, 0), pages.count - 1)]
@@ -35,6 +45,34 @@ final class PagesModel: ObservableObject {
         selectedIndex = min(max(index, 0), pages.count - 1)
     }
 
-    func next() { select((selectedIndex + 1) % pages.count) }
-    func previous() { select((selectedIndex - 1 + pages.count) % pages.count) }
+    // MARK: - Editing
+
+    func isWidget(_ kind: WidgetKind, onPage pageID: String) -> Bool {
+        pages.first(where: { $0.id == pageID })?.widgets.contains(kind) ?? false
+    }
+
+    func setWidget(_ kind: WidgetKind, onPage pageID: String, included: Bool) {
+        guard let i = pages.firstIndex(where: { $0.id == pageID }) else { return }
+        if included {
+            if !pages[i].widgets.contains(kind) { pages[i].widgets.append(kind) }
+        } else {
+            pages[i].widgets.removeAll { $0 == kind }
+        }
+    }
+
+    func moveWidgets(onPage pageID: String, from source: IndexSet, to destination: Int) {
+        guard let i = pages.firstIndex(where: { $0.id == pageID }) else { return }
+        pages[i].widgets.move(fromOffsets: source, toOffset: destination)
+    }
+
+    func resetToDefaults() {
+        pages = PagesModel.defaultPages
+        selectedIndex = 0
+    }
+
+    private func persist() {
+        if let data = try? JSONEncoder().encode(pages) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+        }
+    }
 }
