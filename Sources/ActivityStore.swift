@@ -45,14 +45,37 @@ final class ActivityStore: ObservableObject {
     /// How long a successful activity lingers before auto-pruning.
     private let successLinger: TimeInterval = 8
 
+    /// A running activity that gets no updates for this long is considered
+    /// finished/abandoned (e.g. the tool exited without sending `complete`, or
+    /// the Stop hook didn't fire) and is cleared so the notch doesn't show
+    /// "running" forever.
+    private let staleRunningTimeout: TimeInterval = 90
+
     /// Pending auto-prune tasks, keyed by activity id, so a fresh update can
     /// cancel a scheduled removal.
     private var pruneTasks: [String: Task<Void, Never>] = [:]
+    private var staleTimer: Timer?
 
     // Injectable clock so the (default) implementation stays testable.
     private let now: () -> Date
     init(now: @escaping () -> Date = Date.init) {
         self.now = now
+        let t = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.pruneStaleRunning() }
+        }
+        t.tolerance = 5
+        staleTimer = t
+    }
+
+    deinit { staleTimer?.invalidate() }
+
+    /// Remove running activities that have gone quiet past the timeout.
+    private func pruneStaleRunning() {
+        let cutoff = now().addingTimeInterval(-staleRunningTimeout)
+        let stale = activities.filter { $0.status == .running && $0.updatedAt < cutoff }
+        guard !stale.isEmpty else { return }
+        for a in stale { cancelPrune(a.id) }
+        activities.removeAll { a in stale.contains(where: { $0.id == a.id }) }
     }
 
     /// Fired after any event is applied (after the mutation completes, so it

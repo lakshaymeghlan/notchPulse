@@ -75,7 +75,13 @@ final class WindowsMonitor: ObservableObject {
     }
 
     func activate(_ win: Win) {
-        NSRunningApplication(processIdentifier: win.ownerPID)?
-            .activate(options: [.activateAllWindows])
+        let app = NSRunningApplication(processIdentifier: win.ownerPID)
+        if let url = app?.bundleURL {
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            NSWorkspace.shared.openApplication(at: url, configuration: config)
+        } else {
+            app?.activate(options: [.activateAllWindows])
+        }
     }
 }

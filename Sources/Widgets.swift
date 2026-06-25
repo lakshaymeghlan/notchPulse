@@ -2,6 +2,27 @@ import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
 
+/// Renders an NSImage through a native NSImageView so app icons keep their full
+/// color (SwiftUI's Image path was rendering them monochrome inside the notch).
+struct NativeIcon: NSViewRepresentable {
+    let image: NSImage
+
+    func makeNSView(context: Context) -> NSImageView {
+        let view = NSImageView()
+        view.image = image
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .vertical)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSImageView, context: Context) {
+        nsView.image = image
+    }
+}
+
 /// Section chrome: a small header (icon + caps title) above content, laid out
 /// top-leading to fill its column. Matches the macnotch-style divided panel.
 struct NotchSection<Content: View>: View {
@@ -181,10 +202,8 @@ struct OpenAppsSection: View {
                             Button {
                                 openApps.activate(app)
                             } label: {
-                                Image(nsImage: icon)
-                                    .resizable()
-                                    .frame(width: 30, height: 30)
-                                    .opacity(app.isActive ? 1 : 0.65)
+                                NativeIcon(image: icon)
+                                    .frame(width: 32, height: 32)
                             }
                             .buttonStyle(.plain)
                             .help("Focus \(app.name)")
@@ -214,7 +233,7 @@ struct OpenWindowsSection: View {
                             } label: {
                                 HStack(spacing: 7) {
                                     if let icon = win.icon {
-                                        Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+                                        NativeIcon(image: icon).frame(width: 16, height: 16)
                                     }
                                     Text(win.title)
                                         .font(.system(size: 11))
@@ -302,7 +321,7 @@ private struct ShelfChip: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Image(nsImage: item.icon).resizable().frame(width: 28, height: 28)
+            NativeIcon(image: item.icon).frame(width: 28, height: 28)
             Text(item.name).font(.system(size: 8)).foregroundStyle(.white.opacity(0.7))
                 .lineLimit(1).frame(maxWidth: 50)
         }

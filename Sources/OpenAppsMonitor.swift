@@ -9,6 +9,7 @@ final class OpenAppsMonitor: ObservableObject {
         let name: String
         let icon: NSImage?
         let isActive: Bool
+        let bundleURL: URL?
     }
 
     @Published private(set) var apps: [App] = []
@@ -42,12 +43,21 @@ final class OpenAppsMonitor: ObservableObject {
             App(id: $0.processIdentifier,
                 name: $0.localizedName ?? "App",
                 icon: $0.icon,
-                isActive: $0.isActive)
+                isActive: $0.isActive,
+                bundleURL: $0.bundleURL)
         }
     }
 
     func activate(_ app: App) {
-        NSRunningApplication(processIdentifier: app.id)?
-            .activate(options: [.activateAllWindows])
+        // openApplication on the running instance reliably brings it forward,
+        // even from a background/accessory app (unlike NSRunningApplication
+        // .activate, which is gated by cooperative activation on recent macOS).
+        if let url = app.bundleURL {
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            NSWorkspace.shared.openApplication(at: url, configuration: config)
+        } else {
+            NSRunningApplication(processIdentifier: app.id)?.activate(options: [.activateAllWindows])
+        }
     }
 }
