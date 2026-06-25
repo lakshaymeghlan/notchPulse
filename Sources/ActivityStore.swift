@@ -55,6 +55,12 @@ final class ActivityStore: ObservableObject {
         self.now = now
     }
 
+    /// Fired after any event is applied (after the mutation completes, so it
+    /// runs outside the @Published emission). The window controller uses this to
+    /// peek the notch open — more reliable than observing `$activities`, whose
+    /// sink can fire mid-`willSet`.
+    var onActivity: (() -> Void)?
+
     // MARK: - Derived summary (drives the collapsed pill)
 
     enum Summary: Equatable {
@@ -128,6 +134,8 @@ final class ActivityStore: ObservableObject {
                 return a
             }
         }
+
+        onActivity?()
     }
 
     func clear(id: String) {

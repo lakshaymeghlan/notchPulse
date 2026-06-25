@@ -12,20 +12,22 @@ final class NotchWindowController {
     private let notchState: NotchState
     private let store: ActivityStore
     private var cancellables = Set<AnyCancellable>()
+    private var peekTask: Task<Void, Never>?
 
-    // Collapsed dimensions are clamped to the real notch when one exists; these
-    // are sensible defaults / fallbacks for non-notched displays.
-    private let collapsedFallbackWidth: CGFloat = 200
-    private let collapsedHeight: CGFloat = 32
-    private let expandedWidth: CGFloat = 360
-    private let expandedHeight: CGFloat = 170
+    // Collapsed dimensions match the physical notch exactly (overlaying it);
+    // these are the fallback for non-notched Macs.
+    private let fallbackNotchWidth: CGFloat = 190
+    private let fallbackNotchHeight: CGFloat = 32
+    // Expanded surface grows wider than the notch and drops downward.
+    private let expandedWidth: CGFloat = 380
+    private let expandedExtraHeight: CGFloat = 172  // added below the notch strip
 
     init(notchState: NotchState, store: ActivityStore) {
         self.notchState = notchState
         self.store = store
 
         let panel = NotchPanel(
-            contentRect: NSRect(x: 0, y: 0, width: collapsedFallbackWidth, height: collapsedHeight),
+            contentRect: NSRect(x: 0, y: 0, width: fallbackNotchWidth, height: fallbackNotchHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -46,16 +48,39 @@ final class NotchWindowController {
             .environmentObject(notchState)
             .environmentObject(store)
         let hosting = NSHostingView(rootView: root)
+        // CRITICAL: by default NSHostingView emits Auto Layout constraints from
+        // SwiftUI's intrinsic size. Those fight our manual setFrame animation on
+        // hover and trip an AppKit constraint-update assertion (EXC_BREAKPOINT).
+        // We drive the size ourselves, so disable hosting-view sizing entirely.
+        hosting.sizingOptions = []
+        hosting.translatesAutoresizingMaskIntoConstraints = true
+        hosting.autoresizingMask = [.width, .height]
         hosting.layer?.backgroundColor = .clear
         panel.contentView = hosting
 
-        // Resize/reposition whenever hover state flips.
+        // Resize/reposition whenever expansion (hover or peek) flips.
         notchState.$isExpanded
             .removeDuplicates()
             .sink { [weak self] expanded in
                 self?.applyFrame(expanded: expanded, animated: true)
             }
             .store(in: &cancellables)
+
+        // New/updated activity briefly peeks the notch open so it's noticeable
+        // without hovering, then collapses (unless the pointer is over it).
+        // Peek the notch open when activity arrives. We use the store's explicit
+        // callback (fired after apply() completes) rather than observing
+        // $activities, whose sink fires mid-willSet and proved unreliable here.
+        store.onActivity = { [weak self] in
+            guard let self else { return }
+            let hasContent = self.store.hasContent
+            // Hop to a fresh main run-loop turn before driving the resize: the
+            // callback fires from inside apply()'s execution and the panel
+            // animation is more reliable scheduled on its own turn.
+            DispatchQueue.main.async {
+                self.peek(hasContent: hasContent)
+            }
+        }
 
         NotificationCenter.default.addObserver(
             self,
@@ -70,12 +95,31 @@ final class NotchWindowController {
     }
 
     func show() {
+        publishNotchSize()
         applyFrame(expanded: notchState.isExpanded, animated: false)
         panel.orderFrontRegardless()
     }
 
     @objc private func screenParametersChanged() {
+        publishNotchSize()
         applyFrame(expanded: notchState.isExpanded, animated: false)
+    }
+
+    /// Open the notch for a moment when activity arrives, then collapse if the
+    /// pointer isn't over it.
+    private func peek(hasContent: Bool) {
+        // Don't pop open just because the last activity was pruned away.
+        guard hasContent else {
+            notchState.isPeeking = false
+            return
+        }
+        notchState.isPeeking = true
+        peekTask?.cancel()
+        peekTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.notchState.isPeeking = false }
+        }
     }
 
     // MARK: - Geometry
@@ -86,21 +130,34 @@ final class NotchWindowController {
         NSScreen.main ?? NSScreen.screens.first
     }
 
-    /// Width of the collapsed pill, matched to the physical notch when present.
-    private func collapsedWidth(for screen: NSScreen) -> CGFloat {
-        if let notchWidth = NotchGeometry.notchWidth(of: screen) {
-            // A little breathing room on either side of the bezel.
-            return notchWidth + 16
-        }
-        return collapsedFallbackWidth
+    /// Physical notch size of the target screen (0×0 ⇒ no notch).
+    private func notchSize(on screen: NSScreen) -> CGSize {
+        let height = screen.safeAreaInsets.top
+        guard height > 0 else { return .zero }
+        let width = NotchGeometry.notchWidth(of: screen) ?? fallbackNotchWidth
+        return CGSize(width: width, height: height)
+    }
+
+    private func publishNotchSize() {
+        guard let screen = targetScreen else { return }
+        notchState.notchSize = notchSize(on: screen)
     }
 
     private func targetFrame(expanded: Bool, on screen: NSScreen) -> NSRect {
-        let width = expanded ? expandedWidth : collapsedWidth(for: screen)
-        let height = expanded ? expandedHeight : collapsedHeight
         let full = screen.frame
+        let notch = notchSize(on: screen)
+        let hasNotch = notch.height > 0
+
+        let collapsedW = hasNotch ? notch.width : fallbackNotchWidth
+        let collapsedH = hasNotch ? notch.height : fallbackNotchHeight
+
+        let width = expanded ? max(expandedWidth, collapsedW) : collapsedW
+        let height = expanded ? (collapsedH + expandedExtraHeight) : collapsedH
+
+        // Top edge flush with the very top of the display: the collapsed surface
+        // overlays the hardware notch exactly; expanded grows downward from it.
+        let topY = full.maxY
         let centerX = full.midX
-        let topY = full.maxY // flush to the very top of the display
         return NSRect(
             x: (centerX - width / 2).rounded(),
             y: (topY - height).rounded(),

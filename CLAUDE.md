@@ -39,13 +39,29 @@ POST 127.0.0.1:7842/event → ActivityServer → ActivityStore.apply(event) → 
   activity or a fresh UUID. `complete` schedules an ~8s auto-prune (cancelled if
   the activity is updated again); `fail` persists until cleared.
 - **NotchWindowController** owns a borderless non-activating `NSPanel`
-  (`.statusBar` level, joins all spaces + fullScreenAuxiliary). It pins the
-  panel flush to the top-center of `NSScreen.main.frame`, repositions on
-  `didChangeScreenParametersNotification`, and animates expand/collapse (~0.22s
-  ease-out) by resizing while holding the top-center anchor.
-- **NotchView** renders the collapsed pill (spinner/✓/✗ + count) and the
-  expanded card; hover toggles `NotchState.isExpanded`, which the controller
-  observes to resize the panel.
+  (`.statusBar` level, joins all spaces + fullScreenAuxiliary). Collapsed, the
+  panel matches the *physical notch* exactly (measured via `safeAreaInsets.top`
+  for height and the `auxiliaryTopLeft/RightArea` gap for width) and sits flush
+  to the very top of `NSScreen.main.frame`, overlaying the hardware notch.
+  Expanded, it grows wider and downward from the same top edge. Repositions on
+  `didChangeScreenParametersNotification`; animates ~0.22s ease-out.
+  - **Expansion triggers:** hover (`NotchState.isHovering`) and a ~3.5s auto
+    "peek" (`isPeeking`) fired on new activity. `isExpanded = hovering || peeking`.
+  - The peek is driven by `ActivityStore.onActivity` (an explicit callback fired
+    at the end of `apply()`), hopped onto a fresh main-queue turn. We deliberately
+    do **not** observe `$activities` for this — that sink fires mid-`willSet` and
+    proved unreliable for driving the panel resize.
+- **NotchView** draws the `NotchShape` (flush square top, rounded bottom — the
+  hardware-notch silhouette). Collapsed: idle ⇒ pure black (blends with the
+  notch); active ⇒ status glyph + count in the "ears" straddling the camera.
+  Expanded: a card whose top padding clears the camera/sensor strip.
+
+## Build/run gotcha
+
+`open`-ing the wrong DerivedData bundle silently runs a **stale binary**. Always
+launch the exact product path:
+`xcodebuild ... -showBuildSettings | awk -F' = ' '/ CODESIGNING_FOLDER_PATH /{print $2}'`
+— never `ls DerivedData/NotchPulse-* | head -1` (it can pick an old bundle).
 
 ## Event API
 
@@ -58,9 +74,9 @@ fields and bad input.
   its frame (needed for hover). The transparent rounded corners can still eat
   clicks. TODO: shrink the collapsed hit area to the pill shape, or toggle
   `ignoresMouseEvents` when idle. Tracked but not yet done.
-- **Notch sizing:** `NotchGeometry` derives notch width from
-  `auxiliaryTopLeftArea`/`auxiliaryTopRightArea`, falling back to ~200pt. Tune
-  against real hardware.
+- **Notch sizing:** the collapsed surface now matches the measured notch
+  (`NotchGeometry` width + `safeAreaInsets.top` height). The `NotchShape` top
+  fillet / bottom radius are hand-tuned; revisit against more hardware.
 - **Non-notched / external displays:** `NotchGeometry.hasNotch` checks
   `safeAreaInsets.top`. On non-notched Macs we render a top-center floating pill
   (the same black rounded surface). Multi-display: we currently follow
