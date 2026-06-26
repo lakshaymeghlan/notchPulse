@@ -10,6 +10,25 @@ html {
   scroll-behavior: smooth;
 }
 
+/* lenis smooth scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+/* coffee steam */
+@keyframes steam {
+  0% { transform: translateY(0) scaleX(1); opacity: 0; }
+  20% { opacity: .5; }
+  100% { transform: translateY(-26px) scaleX(1.6); opacity: 0; }
+}
+
 body {
   background: #e7e7e1;
   color: #17181a;

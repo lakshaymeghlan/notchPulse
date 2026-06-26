@@ -1,5 +1,4 @@
-// ▼ Replace with your real checkout (Gumroad / Lemon Squeezy / Paddle).
-//   On Gumroad, create the product at $10 and a 50%-off code, or set price $5.
-export const BUY_URL = "https://gumroad.com/l/notchpulse";
-
-export const PRICE = { now: 5, was: 10 };
+// NotchPulse is free. Support is via Buy Me a Coffee.
+// ▼ Replace with your handles.
+export const COFFEE_URL = "https://www.buymeacoffee.com/notchpulse";
+export const DOWNLOAD_URL = "https://github.com/lakshaymeghlan/notchPulse/releases"; // ← your release/download

@@ -46,6 +46,15 @@ export default function Pulse({
     };
     addEventListener("pointermove", onMove, { passive: true });
 
+    // scroll velocity drives the wave energy — the pulse "feels" the page move
+    let lastY = scrollY;
+    const onScroll = () => {
+      const v = Math.min(1, Math.abs(scrollY - lastY) / 60);
+      target = Math.max(target, 0.35 + v * 0.9);
+      lastY = scrollY;
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+
     let t = 0;
     const draw = () => {
       t += 0.018;
@@ -102,6 +111,7 @@ export default function Pulse({
       cancelAnimationFrame(raf);
       ro.disconnect();
       removeEventListener("pointermove", onMove);
+      removeEventListener("scroll", onScroll);
     };
   }, [stroke, weight]);
 

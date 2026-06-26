@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { COFFEE_URL } from "@/lib/site";
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -22,12 +23,14 @@ export default function Nav() {
         <div className="flex items-center gap-7 text-[13.5px] text-ink2">
           <a href="#tour" className="hidden hover:text-ink sm:block">Tour</a>
           <a href="#features" className="hidden hover:text-ink sm:block">Features</a>
-          <a href="#pricing" className="hover:text-ink">Pricing</a>
+          <a href="#support" className="hover:text-ink">Support</a>
           <a
-            href="#pricing"
-            className="rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-paper transition-transform hover:-translate-y-0.5"
+            href={COFFEE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full bg-coffee px-4 py-2 text-[13px] font-semibold text-bean transition-transform hover:-translate-y-0.5"
           >
-            Get it — $5
+            ☕ Buy me a coffee
           </a>
         </div>
       </div>

@@ -2,8 +2,10 @@ import Nav, { Mark } from "@/components/Nav";
 import NotchScroll from "@/components/NotchScroll";
 import Pulse from "@/components/Pulse";
 import Reveal from "@/components/Reveal";
+import WordsUp from "@/components/WordsUp";
 import MagneticButton from "@/components/MagneticButton";
-import { BUY_URL, PRICE } from "@/lib/site";
+import CoffeeSupport from "@/components/CoffeeSupport";
+import { COFFEE_URL, DOWNLOAD_URL } from "@/lib/site";
 
 const FEATURES = [
   { i: "01", k: "Live", t: "Agents you can watch", d: "Every Claude Code session gets its own lane — the task it's on, live progress, and a clear ✓ or ✗ when it lands. Run two at once and you see both, tagged by session." },
@@ -31,11 +33,9 @@ export default function Page() {
                 <span className="text-faint">— a precision instrument for macOS</span>
               </div>
             </Reveal>
-            <Reveal delay={0.06}>
-              <h1 className="mt-6 max-w-[14ch] text-balance font-display text-[clamp(52px,9vw,120px)] font-semibold leading-[.92] tracking-tightest">
-                Your notch, alive.
-              </h1>
-            </Reveal>
+            <h1 className="mt-6 max-w-[14ch] font-display text-[clamp(52px,9vw,120px)] font-semibold leading-[.92] tracking-tightest">
+              <WordsUp text="Your notch, alive." delay={0.15} />
+            </h1>
             <Reveal delay={0.12}>
               <p className="mt-7 max-w-[52ch] text-[clamp(17px,2vw,21px)] leading-relaxed text-ink2">
                 The dark strip around your camera has done nothing for years. NotchPulse turns it into a living readout —
@@ -44,11 +44,11 @@ export default function Page() {
             </Reveal>
             <Reveal delay={0.18}>
               <div className="mt-9 flex flex-wrap items-center gap-4">
-                <MagneticButton href="#pricing" className="px-6 py-3.5 text-[15px]">
-                  Get NotchPulse — ${PRICE.now}
+                <MagneticButton href={DOWNLOAD_URL} external className="px-6 py-3.5 text-[15px]">
+                  Download — it&rsquo;s free
                 </MagneticButton>
-                <a href="#tour" className="text-[15px] text-ink underline decoration-line2 decoration-1 underline-offset-[6px] hover:decoration-ink">
-                  Take the tour
+                <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[15px] text-ink underline decoration-line2 decoration-1 underline-offset-[6px] hover:decoration-ink">
+                  ☕ Buy me a coffee
                 </a>
                 <span className="font-mono text-[12.5px] text-faint">macOS 14+ · ~6&nbsp;MB · no account</span>
               </div>
@@ -118,56 +118,10 @@ export default function Page() {
           </div>
         </section>
 
-        {/* PRICING */}
-        <section id="pricing" className="px-6 py-28">
-          <div className="mx-auto grid max-w-content items-center gap-12 md:grid-cols-2">
-            <Reveal>
-              <span className="idx">Pricing</span>
-              <h2 className="mt-3 text-balance font-display text-[clamp(34px,5vw,60px)] font-semibold leading-[.98] tracking-tightest">
-                Pay once.<br />Yours for good.
-              </h2>
-              <p className="mt-6 max-w-[44ch] text-[17px] leading-relaxed text-ink2">
-                No subscription, ever. One price, every future update included — new widgets, new integrations, all of it.
-                This is launch week, so it&rsquo;s half off.
-              </p>
-              <Pulse height={70} className="mt-10 opacity-70" />
-            </Reveal>
-
-            <Reveal delay={0.08}>
-              <div className="rounded-3xl border border-line2 bg-card p-9 shadow-[0_30px_80px_rgba(23,24,26,.08)]">
-                <div className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[.12em] text-live">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--live)" }} />
-                  50% off · launch week
-                </div>
-                <div className="mt-6 flex items-end gap-4">
-                  <span className="font-display text-[88px] font-semibold leading-[.8] tracking-tightest">${PRICE.now}</span>
-                  <span className="pb-2 font-display text-[30px] font-medium text-faint line-through">${PRICE.was}</span>
-                </div>
-                <div className="mt-1 font-mono text-[13px] text-ink2">one-time · lifetime license</div>
-
-                <ul className="mt-8 flex flex-col divide-y divide-line2 border-y border-line2">
-                  {[
-                    "Lifetime license — no subscription",
-                    "Every future update, free forever",
-                    "Live agent tracking + all widgets",
-                    "Ask Claude, Studio, Pomodoro & more",
-                    "Use it on all your personal Macs",
-                  ].map((t) => (
-                    <li key={t} className="flex items-start gap-3 py-3 text-[15px] text-ink">
-                      <span className="mt-2 inline-block h-1 w-1 flex-none rounded-full bg-ink" />
-                      {t}
-                    </li>
-                  ))}
-                </ul>
-
-                <MagneticButton href={BUY_URL} external className="mt-8 w-full px-6 py-4 text-[16px]">
-                  Buy NotchPulse — ${PRICE.now}
-                </MagneticButton>
-                <div className="mt-3 text-center font-mono text-[12px] text-faint">
-                  secure checkout · instant download · 14-day refund
-                </div>
-              </div>
-            </Reveal>
+        {/* SUPPORT — buy me a coffee */}
+        <section id="support" className="px-6 py-28">
+          <div className="mx-auto max-w-content">
+            <CoffeeSupport />
           </div>
         </section>
 
@@ -198,7 +152,7 @@ export default function Page() {
         <footer className="px-6 py-16">
           <div className="mx-auto flex max-w-content flex-col items-center gap-3 text-center">
             <div className="flex items-center gap-2.5 font-display text-[18px] font-semibold"><Mark /> NotchPulse</div>
-            <div className="text-[13.5px] text-ink2">Your notch, alive · macOS 14+ · <a href="#pricing" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">Get it for ${PRICE.now}</a></div>
+            <div className="text-[13.5px] text-ink2">Your notch, alive · macOS 14+ · free · <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">buy me a coffee ☕</a></div>
             <div className="font-mono text-[12px] text-faint">© 2026 NotchPulse</div>
           </div>
         </footer>
