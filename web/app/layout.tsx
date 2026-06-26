@@ -21,14 +21,22 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NotchPulse — Your notch, alive",
+  title: { default: "NotchPulse — Your notch, alive", template: "%s · NotchPulse" },
   description:
-    "A precision instrument for your MacBook notch. Watch your Claude Code agents work, glance at widgets, and ask Claude — all in the strip you already own. $5 lifetime.",
+    "A precision instrument for your MacBook notch. Watch your Claude Code agents work, glance at widgets, and ask Claude — all in the strip you already own. Free for macOS.",
   metadataBase: new URL("https://notchpulse.app"),
+  keywords: ["macOS notch", "MacBook notch app", "Claude Code", "Dynamic Island Mac", "menu bar", "AI agents", "developer tools"],
+  applicationName: "NotchPulse",
   openGraph: {
     title: "NotchPulse — Your notch, alive",
-    description: "Watch your AI agents work, right in your MacBook notch.",
+    description: "Watch your AI agents work, glance at what matters, and ask Claude — right in your MacBook notch.",
     type: "website",
+    siteName: "NotchPulse",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NotchPulse — Your notch, alive",
+    description: "Watch your AI agents work, right in your MacBook notch. Free for macOS.",
   },
 };
 

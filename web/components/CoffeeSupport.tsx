@@ -1,7 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import MagneticButton from "./MagneticButton";
-import { COFFEE_URL } from "@/lib/site";
+import CoffeeButton from "./CoffeeButton";
 
 export default function CoffeeSupport() {
   return (
@@ -36,14 +35,9 @@ export default function CoffeeSupport() {
           Like it? Buy me a coffee.
         </div>
         <p className="mt-1 text-[14px] text-ink2">A couple bucks keeps the updates coming.</p>
-        <MagneticButton
-          href={COFFEE_URL}
-          external
-          variant="ghost"
-          className="mt-6 gap-2.5 border-bean/20 bg-coffee px-7 py-3.5 text-[15px] font-semibold text-bean hover:bg-coffee"
-        >
+        <CoffeeButton className="mt-6 px-7 py-3.5 text-[15px]">
           <span className="text-[18px]">☕</span> Buy me a coffee
-        </MagneticButton>
+        </CoffeeButton>
       </motion.div>
     </div>
   );

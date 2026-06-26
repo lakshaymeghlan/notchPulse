@@ -5,6 +5,7 @@ import WordsUp from "@/components/WordsUp";
 import MagneticButton from "@/components/MagneticButton";
 import HeroNotch from "@/components/HeroNotch";
 import CoffeeSupport from "@/components/CoffeeSupport";
+import CoffeeButton from "@/components/CoffeeButton";
 import Faq from "@/components/Faq";
 import { COFFEE_URL, DOWNLOAD_URL } from "@/lib/site";
 
@@ -153,9 +154,7 @@ export default function Page() {
                 <MagneticButton href={DOWNLOAD_URL} download className="px-7 py-4 text-[16px]">
                   ↓ Download NotchPulse — free
                 </MagneticButton>
-                <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-coffee px-5 py-3.5 text-[15px] font-semibold text-bean">
-                  ☕ Buy me a coffee
-                </a>
+                <CoffeeButton className="px-5 py-3.5 text-[15px]" />
               </div>
             </div>
           </Reveal>
@@ -164,7 +163,11 @@ export default function Page() {
         <footer className="px-6 py-16">
           <div className="mx-auto flex max-w-content flex-col items-center gap-3 text-center">
             <div className="flex items-center gap-2.5 font-display text-[18px] font-semibold"><Mark /> NotchPulse</div>
-            <div className="text-[13.5px] text-ink2">Your notch, alive · macOS 14+ · free · <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">buy me a coffee ☕</a></div>
+            <div className="text-[13.5px] text-ink2">
+              Your notch, alive · macOS 14+ · free ·{" "}
+              <a href="/changelog" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">changelog</a> ·{" "}
+              <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">buy me a coffee ☕</a>
+            </div>
             <div className="font-mono text-[12px] text-faint">© 2026 NotchPulse</div>
           </div>
         </footer>
