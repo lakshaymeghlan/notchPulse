@@ -44,6 +44,9 @@ final class NotchWindowController {
     private let calendar: CalendarMonitor
     private let music: NowPlayingMonitor
     private let teleprompter: TeleprompterModel
+    private let stats: SystemStatsMonitor
+    private let pomodoro: PomodoroModel
+    private let theme: ThemeModel
     private let pages: PagesModel
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
@@ -62,6 +65,9 @@ final class NotchWindowController {
         calendar: CalendarMonitor,
         music: NowPlayingMonitor,
         teleprompter: TeleprompterModel,
+        stats: SystemStatsMonitor,
+        pomodoro: PomodoroModel,
+        theme: ThemeModel,
         pages: PagesModel
     ) {
         self.notchState = notchState
@@ -75,6 +81,9 @@ final class NotchWindowController {
         self.calendar = calendar
         self.music = music
         self.teleprompter = teleprompter
+        self.stats = stats
+        self.pomodoro = pomodoro
+        self.theme = theme
         self.pages = pages
 
         let panel = NotchPanel(
@@ -113,6 +122,9 @@ final class NotchWindowController {
             .environmentObject(calendar)
             .environmentObject(music)
             .environmentObject(teleprompter)
+            .environmentObject(stats)
+            .environmentObject(pomodoro)
+            .environmentObject(theme)
             .environmentObject(pages)
         let hosting = NSHostingView(rootView: root)
         hosting.sizingOptions = []

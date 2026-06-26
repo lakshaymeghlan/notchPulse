@@ -17,6 +17,8 @@ struct NotchPulseApp: App {
                 .environmentObject(appDelegate.shelf)
                 .environmentObject(appDelegate.pages)
                 .environmentObject(appDelegate.teleprompter)
+                .environmentObject(appDelegate.theme)
+                .environmentObject(appDelegate.pomodoro)
         }
     }
 }
@@ -46,10 +48,60 @@ struct SettingsView: View {
         TabView {
             WidgetsSettings()
                 .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+            AppearanceSettings()
+                .tabItem { Label("Appearance", systemImage: "paintpalette") }
             TeleprompterSettings()
                 .tabItem { Label("Teleprompter", systemImage: "text.alignleft") }
         }
         .frame(width: 480, height: 560)
+    }
+}
+
+/// Accent color, frosted glass, and Pomodoro durations.
+struct AppearanceSettings: View {
+    @EnvironmentObject var theme: ThemeModel
+    @EnvironmentObject var pomo: PomodoroModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Appearance").font(.headline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Accent color").font(.subheadline).foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    ForEach(ThemeModel.Accent.allCases) { accent in
+                        Circle()
+                            .fill(accent.color)
+                            .frame(width: 26, height: 26)
+                            .overlay(Circle().stroke(.primary, lineWidth: theme.accent == accent ? 2 : 0))
+                            .overlay(Circle().stroke(.secondary.opacity(0.3), lineWidth: 0.5))
+                            .onTapGesture { theme.accent = accent }
+                    }
+                }
+            }
+
+            Toggle(isOn: $theme.glass) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Frosted glass panel")
+                    Text("Blurred translucent background when expanded (collapsed stays black).")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Divider()
+
+            Text("Pomodoro").font(.subheadline).foregroundStyle(.secondary)
+            Stepper(value: $pomo.workMinutes, in: 5...90, step: 5) {
+                Text("Focus: \(pomo.workMinutes) min")
+            }
+            Stepper(value: $pomo.breakMinutes, in: 1...30, step: 1) {
+                Text("Break: \(pomo.breakMinutes) min")
+            }
+
+            Spacer()
+        }
+        .padding(20)
     }
 }
 

@@ -9,6 +9,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case apps
     case windows
     case music
+    case stats
+    case pomodoro
     case camera
     case teleprompter
     case calendar
@@ -24,6 +26,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .apps: return "Open Apps"
         case .windows: return "Open Windows"
         case .music: return "Music"
+        case .stats: return "System"
+        case .pomodoro: return "Pomodoro"
         case .camera: return "Camera"
         case .teleprompter: return "Teleprompter"
         case .calendar: return "Calendar"
@@ -39,6 +43,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .apps: return "square.grid.2x2"
         case .windows: return "macwindow.on.rectangle"
         case .music: return "music.note"
+        case .stats: return "cpu"
+        case .pomodoro: return "timer"
         case .camera: return "camera"
         case .teleprompter: return "text.alignleft"
         case .calendar: return "calendar"
@@ -54,6 +60,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .apps: return "Apps you currently have open — click to focus."
         case .windows: return "Open windows — click to bring one forward."
         case .music: return "Now playing in Spotify / Apple Music."
+        case .stats: return "Live CPU and memory graphs."
+        case .pomodoro: return "A focus timer with work / break cycles."
         case .camera: return "A live camera mirror (off until you turn it on)."
         case .teleprompter: return "Scroll a script while you look at the lens."
         case .calendar: return "Your next events (asks permission)."
@@ -61,7 +69,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .apps, .windows, .music, .teleprompter, .camera, .shelf] }
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .stats, .apps, .windows, .music, .pomodoro, .teleprompter, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"

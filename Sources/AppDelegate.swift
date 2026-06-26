@@ -14,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let calendar = CalendarMonitor()
     let music = NowPlayingMonitor()
     let teleprompter = TeleprompterModel()
+    let stats = SystemStatsMonitor()
+    let pomodoro = PomodoroModel()
+    let theme = ThemeModel()
     let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
@@ -35,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             calendar: calendar,
             music: music,
             teleprompter: teleprompter,
+            stats: stats,
+            pomodoro: pomodoro,
+            theme: theme,
             pages: pages
         )
         controller.show()

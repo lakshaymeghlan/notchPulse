@@ -11,10 +11,15 @@ final class NowPlayingMonitor: ObservableObject {
         var artist: String
         var app: String        // "Spotify" | "Music"
         var isPlaying: Bool
+        var position: Double = 0   // seconds
+        var duration: Double = 0   // seconds
+        var artworkURL: String = ""
     }
 
     @Published private(set) var track: Track?
+    @Published private(set) var artwork: NSImage?
     @Published private(set) var permissionNeeded = false
+    private var artworkURLLoaded = ""
 
     private var timer: Timer?
     private let queue = DispatchQueue(label: "io.notchpulse.nowplaying")
@@ -55,11 +60,19 @@ final class NowPlayingMonitor: ObservableObject {
                 set st to (player state as string)
                 set t to ""
                 set a to ""
+                set dur to 0
+                set pos to 0
+                set art to ""
                 try
                     set t to name of current track
                     set a to artist of current track
+                    set dur to duration of current track
+                    set pos to player position
                 end try
-                return st & "\\n" & t & "\\n" & a
+                try
+                    set art to artwork url of current track
+                end try
+                return st & "\\n" & t & "\\n" & a & "\\n" & (pos as string) & "\\n" & (dur as string) & "\\n" & art
             end tell
             """
             var errorInfo: NSDictionary?
@@ -85,8 +98,43 @@ final class NowPlayingMonitor: ObservableObject {
         let state = parts[0].lowercased()
         let title = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
         let artist = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
-        if title.isEmpty { track = nil; return }
-        track = Track(title: title, artist: artist, app: player.appName, isPlaying: state.contains("playing"))
+        if title.isEmpty { track = nil; artwork = nil; return }
+
+        let position = parts.count > 3 ? (Double(parts[3].trimmingCharacters(in: .whitespaces)) ?? 0) : 0
+        var duration = parts.count > 4 ? (Double(parts[4].trimmingCharacters(in: .whitespaces)) ?? 0) : 0
+        // Spotify reports duration in milliseconds; Apple Music in seconds.
+        if player.appName == "Spotify" { duration /= 1000 }
+        let artURL = parts.count > 5 ? parts[5].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+
+        track = Track(title: title, artist: artist, app: player.appName,
+                      isPlaying: state.contains("playing"),
+                      position: position, duration: duration, artworkURL: artURL)
+        loadArtwork(artURL)
+    }
+
+    private func loadArtwork(_ urlString: String) {
+        guard urlString != artworkURLLoaded else { return }
+        artworkURLLoaded = urlString
+        guard let url = URL(string: urlString), url.scheme?.hasPrefix("http") == true else {
+            artwork = nil; return
+        }
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            let image = data.flatMap { NSImage(data: $0) }
+            Task { @MainActor in
+                // Only apply if still the current track's art.
+                if self.track?.artworkURL == urlString { self.artwork = image }
+            }
+        }.resume()
+    }
+
+    func seek(to seconds: Double) {
+        guard let player = activePlayer else { return }
+        queue.async { [weak self] in
+            let script = "tell application \"\(player.appName)\" to set player position to \(Int(seconds))"
+            var err: NSDictionary?
+            NSAppleScript(source: script)?.executeAndReturnError(&err)
+            Task { @MainActor in self?.refresh() }
+        }
     }
 
     // MARK: - Controls

@@ -50,8 +50,10 @@ enum NotchLayout {
 struct NotchView: View {
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var theme: ThemeModel
 
     private var expanded: Bool { notchState.isExpanded }
+    private var useGlass: Bool { theme.glass && notchState.isExpanded }
     private var active: Bool { store.summary != .idle }
 
     var body: some View {
@@ -66,17 +68,9 @@ struct NotchView: View {
             Color.clear
             VStack(spacing: 0) {
                 shape
-                    .fill(.black)
-                    .overlay {
-                        // Premium depth when expanded: faint top-down sheen.
-                        if expanded {
-                            shape.fill(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.06), .clear],
-                                    startPoint: .top, endPoint: .center
-                                )
-                            )
-                        }
+                    .fill(useGlass ? Color.black.opacity(0.4) : Color.black)   // pitch black blends with the notch
+                    .background {
+                        if useGlass { GlassBackground().clipShape(shape) }
                     }
                     .overlay {
                         ZStack {
@@ -86,10 +80,6 @@ struct NotchView: View {
                                 .opacity(expanded ? 1 : 0)
                         }
                         .clipShape(shape)
-                    }
-                    .overlay {
-                        // Hairline edge — barely-there, reads as glass rim.
-                        shape.stroke(.white.opacity(expanded ? 0.10 : 0), lineWidth: 0.75)
                     }
                     .frame(width: w, height: h)
 
@@ -290,6 +280,8 @@ private struct SectionView: View {
         case .apps:     OpenAppsSection()
         case .windows:  OpenWindowsSection()
         case .music:    MusicSection()
+        case .stats:    StatsSection()
+        case .pomodoro: PomodoroSection()
         case .shelf:    ShelfSection()
         case .camera:   CameraSection()
         case .teleprompter: TeleprompterSection()

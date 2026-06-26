@@ -73,6 +73,7 @@ struct ClockSection: View {
 
 struct AgentSection: View {
     @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var theme: ThemeModel
 
     private var running: [Activity] { store.activities.filter { $0.status == .running } }
     private var latest: Activity? { store.activities.first }
@@ -82,10 +83,10 @@ struct AgentSection: View {
             if let current = running.first {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
-                        PulsingDot(color: .green)
+                        PulsingDot(color: theme.accent.color)
                         Text(running.count > 1 ? "Running · \(running.count) tasks" : "Running")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(theme.accent.color)
                     }
                     Text(current.title)
                         .font(.system(size: 13, weight: .semibold))
@@ -98,7 +99,7 @@ struct AgentSection: View {
                             .lineLimit(1)
                     }
                     if let p = current.progress {
-                        ProgressView(value: p).progressViewStyle(.linear).tint(.green).frame(height: 3)
+                        ProgressView(value: p).progressViewStyle(.linear).tint(theme.accent.color).frame(height: 3)
                     }
                 }
             } else if let last = latest {
@@ -349,28 +350,45 @@ private struct ShelfChip: View {
 
 struct MusicSection: View {
     @EnvironmentObject var music: NowPlayingMonitor
+    @EnvironmentObject var theme: ThemeModel
 
     var body: some View {
         NotchSection(title: "Music", systemImage: "music.note") {
             if let track = music.track {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .top) {
-                        Text(track.title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white).lineLimit(1)
-                        Spacer(minLength: 8)
-                        EqualizerBars(active: track.isPlaying, color: .green)
-                            .frame(width: 22, height: 18)
+                HStack(alignment: .top, spacing: 10) {
+                    // Album art (Spotify provides a URL; placeholder otherwise).
+                    Group {
+                        if let art = music.artwork {
+                            Image(nsImage: art).resizable().interpolation(.high)
+                        } else {
+                            RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08))
+                                .overlay(Image(systemName: "music.note").foregroundStyle(.white.opacity(0.4)))
+                        }
                     }
-                    Text(track.artist.isEmpty ? track.app : track.artist)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.6)).lineLimit(1)
-                    HStack(spacing: 16) {
-                        MusicButton(icon: "backward.fill") { music.previous() }
-                        MusicButton(icon: track.isPlaying ? "pause.fill" : "play.fill") { music.playPause() }
-                        MusicButton(icon: "forward.fill") { music.next() }
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .top, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(track.title).font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white).lineLimit(1)
+                                Text(track.artist.isEmpty ? track.app : track.artist)
+                                    .font(.system(size: 10)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                            }
+                            Spacer(minLength: 4)
+                            EqualizerBars(active: track.isPlaying, color: theme.accent.color)
+                                .frame(width: 20, height: 16)
+                        }
+                        MusicScrubber(position: track.position, duration: track.duration, tint: theme.accent.color) {
+                            music.seek(to: $0)
+                        }
+                        HStack(spacing: 14) {
+                            MusicButton(icon: "backward.fill") { music.previous() }
+                            MusicButton(icon: track.isPlaying ? "pause.fill" : "play.fill") { music.playPause() }
+                            MusicButton(icon: "forward.fill") { music.next() }
+                        }
                     }
-                    .padding(.top, 1)
                 }
             } else if music.permissionNeeded {
                 Text("Allow control in System Settings → Automation")
@@ -427,6 +445,156 @@ struct EqualizerBars: View {
         let phase = Double(i) * 0.7
         return 4 + 13 * (0.5 + 0.5 * sin(t * 6.0 + phase))
     }
+}
+
+/// Seekable progress bar for the Music widget.
+struct MusicScrubber: View {
+    let position: Double
+    let duration: Double
+    let tint: Color
+    let onSeek: (Double) -> Void
+    @State private var dragging = false
+    @State private var temp = 0.0
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Slider(
+                value: Binding(
+                    get: { dragging ? temp : position },
+                    set: { temp = $0 }
+                ),
+                in: 0...max(duration, 1),
+                onEditingChanged: { editing in
+                    if editing { dragging = true } else { dragging = false; onSeek(temp) }
+                }
+            )
+            .controlSize(.mini)
+            .tint(tint)
+            HStack {
+                Text(clock(dragging ? temp : position))
+                Spacer()
+                Text(clock(duration))
+            }
+            .font(.system(size: 9, weight: .medium)).monospacedDigit()
+            .foregroundStyle(.white.opacity(0.5))
+        }
+    }
+
+    private func clock(_ s: Double) -> String {
+        let t = Int(max(0, s)); return String(format: "%d:%02d", t / 60, t % 60)
+    }
+}
+
+// MARK: - System stats
+
+struct StatsSection: View {
+    @EnvironmentObject var stats: SystemStatsMonitor
+    @EnvironmentObject var theme: ThemeModel
+
+    var body: some View {
+        NotchSection(title: "System", systemImage: "cpu") {
+            VStack(alignment: .leading, spacing: 10) {
+                StatRow(label: "CPU", value: stats.cpu, history: stats.cpuHistory, color: theme.accent.color)
+                StatRow(label: "MEM", value: stats.memory, history: stats.memHistory, color: .blue)
+            }
+        }
+        .onAppear { stats.start() }
+        .onDisappear { stats.stop() }
+    }
+}
+
+private struct StatRow: View {
+    let label: String
+    let value: Double
+    let history: [Double]
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.5))
+                Spacer()
+                Text("\(Int(value * 100))%").font(.system(size: 11, weight: .bold, design: .rounded))
+                    .monospacedDigit().foregroundStyle(.white)
+            }
+            Sparkline(values: history, color: color).frame(height: 22)
+        }
+    }
+}
+
+struct Sparkline: View {
+    let values: [Double]
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            ZStack {
+                if values.count > 1 {
+                    let pts = points(w: w, h: h)
+                    // Fill under the line.
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: h))
+                        for pt in pts { p.addLine(to: pt) }
+                        p.addLine(to: CGPoint(x: w, y: h))
+                        p.closeSubpath()
+                    }
+                    .fill(LinearGradient(colors: [color.opacity(0.35), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    Path { p in
+                        p.move(to: pts[0])
+                        for pt in pts.dropFirst() { p.addLine(to: pt) }
+                    }
+                    .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineJoin: .round))
+                }
+            }
+        }
+    }
+
+    private func points(w: CGFloat, h: CGFloat) -> [CGPoint] {
+        guard values.count > 1 else { return [] }
+        return values.enumerated().map { i, v in
+            CGPoint(x: w * CGFloat(i) / CGFloat(values.count - 1), y: h * (1 - CGFloat(min(max(v, 0), 1))))
+        }
+    }
+}
+
+// MARK: - Pomodoro
+
+struct PomodoroSection: View {
+    @EnvironmentObject var pomo: PomodoroModel
+    @EnvironmentObject var theme: ThemeModel
+
+    var body: some View {
+        NotchSection(title: "Pomodoro", systemImage: "timer") {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().stroke(.white.opacity(0.14), lineWidth: 4)
+                    Circle().trim(from: 0, to: pomo.progress)
+                        .stroke(phaseColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 0.3), value: pomo.progress)
+                    Text(PomodoroModel.clock(pomo.remaining))
+                        .font(.system(size: 13, weight: .bold, design: .rounded)).monospacedDigit()
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 58, height: 58)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(pomo.phase.rawValue)
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(phaseColor)
+                    Text("\(pomo.completedSessions) done")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
+                    HStack(spacing: 12) {
+                        MusicButton(icon: pomo.isRunning ? "pause.fill" : "play.fill") { pomo.toggle() }
+                        MusicButton(icon: "arrow.counterclockwise") { pomo.reset() }
+                        MusicButton(icon: "forward.end.fill") { pomo.skip() }
+                    }
+                }
+            }
+        }
+    }
+
+    private var phaseColor: Color { pomo.phase == .work ? theme.accent.color : .orange }
 }
 
 // MARK: - Camera mirror
