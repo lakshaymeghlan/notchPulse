@@ -29,7 +29,7 @@ export default function CoffeeSupport() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="relative flex flex-col items-center rounded-3xl border border-line2 bg-card px-8 py-12 shadow-[0_30px_80px_rgba(23,24,26,.08)]"
+        className="relative flex flex-col items-center rounded-3xl glass px-8 py-12"
       >
         <Cup />
         <div className="mt-8 text-center font-display text-[20px] font-medium tracking-tight">

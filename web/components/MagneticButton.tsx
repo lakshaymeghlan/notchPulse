@@ -8,9 +8,10 @@ type Props = {
   variant?: "primary" | "ghost";
   className?: string;
   external?: boolean;
+  download?: boolean;
 };
 
-export default function MagneticButton({ href, children, variant = "primary", className = "", external }: Props) {
+export default function MagneticButton({ href, children, variant = "primary", className = "", external, download }: Props) {
   const ref = useRef<HTMLAnchorElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -29,6 +30,7 @@ export default function MagneticButton({ href, children, variant = "primary", cl
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
+      download={download ? "" : undefined}
       className={`${base} ${look} ${className}`}
       style={{ x: sx, y: sy }}
       onPointerMove={(e) => {
