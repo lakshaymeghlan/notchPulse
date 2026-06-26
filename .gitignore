@@ -17,3 +17,8 @@ xcuserdata/
 
 # Misc
 *.swp
+
+# Next.js website
+web/node_modules/
+web/.next/
+web/out/
