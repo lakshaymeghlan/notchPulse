@@ -80,52 +80,74 @@ struct AgentSection: View {
 
     var body: some View {
         NotchSection(title: "Agent", systemImage: "waveform.path.ecg") {
-            if let current = running.first {
+            if !running.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         PulsingDot(color: theme.accent.color)
-                        Text(running.count > 1 ? "Running · \(running.count) tasks" : "Running")
+                        Text(running.count > 1 ? "\(running.count) agents running" : "Running")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(theme.accent.color)
                     }
-                    Text(current.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    if let detail = current.detail, !detail.isEmpty {
-                        Text(detail)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .lineLimit(1)
+                    // One lane per running session — two Claude Codes show as two.
+                    ForEach(running.prefix(3)) { activity in
+                        AgentLane(activity: activity)
                     }
-                    if let p = current.progress {
-                        ProgressView(value: p).progressViewStyle(.linear).tint(theme.accent.color).frame(height: 3)
+                    if running.count > 3 {
+                        Text("+\(running.count - 3) more")
+                            .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
                     }
                 }
             } else if let last = latest {
                 HStack(spacing: 8) {
                     StatusGlyph(summary: last.status == .failure ? .failure(count: 1) : .success, size: 14)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(last.title)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
+                        Text(last.title).font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.white).lineLimit(1)
                         Text(last.status == .failure ? "Failed" : "Done")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.55))
+                            .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
                     }
                 }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Idle")
-                        .font(.system(size: 13, weight: .medium))
+                    Text("Idle").font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
                     Text("Waiting for agent tasks…")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
                 }
             }
         }
+    }
+}
+
+/// One running agent session (distinct lane). Shows the current action and a
+/// short session id so two Claude Code sessions are distinguishable.
+private struct AgentLane: View {
+    let activity: Activity
+    @EnvironmentObject var theme: ThemeModel
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 7) {
+            ProgressView().controlSize(.small).scaleEffect(0.55).frame(width: 12, height: 12)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(primary).font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white).lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(activity.source ?? "Agent")
+                        .font(.system(size: 9, weight: .semibold)).foregroundStyle(theme.accent.color)
+                    Text("#\(String(activity.id.suffix(4)))")
+                        .font(.system(size: 9)).foregroundStyle(.white.opacity(0.4)).monospaced()
+                }
+                if let p = activity.progress {
+                    ProgressView(value: p).progressViewStyle(.linear).tint(theme.accent.color).frame(height: 2.5)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var primary: String {
+        if let d = activity.detail, !d.isEmpty { return d }
+        return activity.title
     }
 }
 
@@ -193,29 +215,92 @@ struct BatterySection: View {
 
 // MARK: - Open apps
 
+/// Open apps shown as a macOS-Dock-style row: icons magnify toward the cursor
+/// (bottom-anchored), with the hovered app's name floating above.
 struct OpenAppsSection: View {
     @EnvironmentObject var openApps: OpenAppsMonitor
+    @State private var hoverX: CGFloat? = nil
 
-    private let columns = [GridItem(.adaptive(minimum: 36), spacing: 6)]
+    private let base: CGFloat = 26
+    private let spacing: CGFloat = 8
+    private let maxScale: CGFloat = 1.9
+    private let sigma: CGFloat = 42
 
     var body: some View {
         NotchSection(title: "Open Apps", systemImage: "square.grid.2x2") {
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
-                    ForEach(openApps.apps) { app in
-                        if let icon = app.icon {
-                            Button {
-                                openApps.activate(app)
-                            } label: {
-                                AppIcon(image: icon, side: 32)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Focus \(app.name)")
+            GeometryReader { geo in
+                let apps = openApps.apps
+                let step = base + spacing
+                let rowWidth = CGFloat(apps.count) * base + CGFloat(max(0, apps.count - 1)) * spacing
+                let inset = max(0, (geo.size.width - rowWidth) / 2)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .bottom, spacing: spacing) {
+                        ForEach(Array(apps.enumerated()), id: \.element.id) { i, app in
+                            let center = inset + CGFloat(i) * step + base / 2
+                            DockIcon(
+                                app: app,
+                                base: base,
+                                scale: scale(for: center),
+                                action: { openApps.activate(app) }
+                            )
+                        }
+                    }
+                    .frame(minWidth: geo.size.width, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 4)
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let p):
+                            withAnimation(.spring(response: 0.18, dampingFraction: 0.7)) { hoverX = p.x }
+                        case .ended:
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { hoverX = nil }
                         }
                     }
                 }
             }
         }
+    }
+
+    private func scale(for center: CGFloat) -> CGFloat {
+        guard let hoverX else { return 1 }
+        let d = hoverX - center
+        return 1 + (maxScale - 1) * exp(-(d * d) / (2 * sigma * sigma))
+    }
+}
+
+private struct DockIcon: View {
+    let app: OpenAppsMonitor.App
+    let base: CGFloat
+    let scale: CGFloat
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .top) {
+                if let icon = app.icon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: base, height: base)
+                        .scaleEffect(scale, anchor: .bottom)
+                }
+                // Floating name label above the magnified icon (like the Dock).
+                if scale > 1.4 {
+                    Text(app.name)
+                        .font(.system(size: 9, weight: .medium))
+                        .lineLimit(1)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(Capsule().fill(.black.opacity(0.8)))
+                        .foregroundStyle(.white)
+                        .fixedSize()
+                        .offset(y: -(base * scale) + 2)
+                        .zIndex(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help(app.name)
     }
 }
 
