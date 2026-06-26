@@ -17,12 +17,11 @@ export default function MagneticButton({ href, children, variant = "primary", cl
   const sx = useSpring(x, { stiffness: 250, damping: 18 });
   const sy = useSpring(y, { stiffness: 250, damping: 18 });
 
-  const base =
-    "relative inline-flex items-center justify-center gap-2 rounded-full font-semibold cursor-pointer select-none";
-  const styles =
+  const base = "relative inline-flex items-center justify-center gap-2 rounded-full font-medium select-none";
+  const look =
     variant === "primary"
-      ? "text-[#03130E] shadow-[0_8px_30px_rgba(61,224,192,.28),inset_0_1px_0_rgba(255,255,255,.4)]"
-      : "text-ink bg-white/5 border border-white/15 hover:bg-white/10";
+      ? "bg-ink text-paper shadow-[0_10px_30px_rgba(23,24,26,.18)]"
+      : "text-ink border border-line2 bg-card hover:bg-paper2";
 
   return (
     <motion.a
@@ -30,13 +29,8 @@ export default function MagneticButton({ href, children, variant = "primary", cl
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className={`${base} ${styles} ${className}`}
-      style={{
-        x: sx,
-        y: sy,
-        background:
-          variant === "primary" ? "linear-gradient(180deg,#4ff0d2,#28c3a6)" : undefined,
-      }}
+      className={`${base} ${look} ${className}`}
+      style={{ x: sx, y: sy }}
       onPointerMove={(e) => {
         const r = ref.current!.getBoundingClientRect();
         x.set((e.clientX - r.left - r.width / 2) / 5);
@@ -46,7 +40,7 @@ export default function MagneticButton({ href, children, variant = "primary", cl
         x.set(0);
         y.set(0);
       }}
-      whileHover={{ scale: 1.03 }}
+      whileHover={{ scale: 1.025 }}
       whileTap={{ scale: 0.97 }}
     >
       {children}

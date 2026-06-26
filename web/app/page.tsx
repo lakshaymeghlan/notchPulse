@@ -1,155 +1,170 @@
-import Aurora from "@/components/Aurora";
-import Nav, { Glyph } from "@/components/Nav";
-import NotchDemo from "@/components/NotchDemo";
+import Nav, { Mark } from "@/components/Nav";
+import NotchScroll from "@/components/NotchScroll";
+import Pulse from "@/components/Pulse";
 import Reveal from "@/components/Reveal";
 import MagneticButton from "@/components/MagneticButton";
 import { BUY_URL, PRICE } from "@/lib/site";
 
+const FEATURES = [
+  { i: "01", k: "Live", t: "Agents you can watch", d: "Every Claude Code session gets its own lane — the task it's on, live progress, and a clear ✓ or ✗ when it lands. Run two at once and you see both, tagged by session." },
+  { i: "02", k: "Ask", t: "Claude, in the strip", d: "Type a question or summarize your clipboard and get an answer in place — powered by your own Claude. No tab, no second login." },
+  { i: "03", k: "Glance", t: "The essentials, always up", d: "A clock, a battery ring, live CPU and memory traces, and now-playing with album art — the things you keep checking, where your eyes already are." },
+  { i: "04", k: "Reach", t: "Every window, one move", d: "Jump to any open window across every Space and display from one place. Your apps, a click away." },
+  { i: "05", k: "Studio", t: "Read, record, focus", d: "A teleprompter you read straight down the lens, a live camera mirror, and a Pomodoro timer with a quiet chime." },
+  { i: "06", k: "Yours", t: "Built to your shape", d: "Compose your own pages, drag widgets into order, choose an accent, switch on frosted glass. It becomes the instrument you want." },
+];
+
 export default function Page() {
   return (
     <>
-      <Aurora />
       <Nav />
-      <main id="top" className="relative z-[2]">
+      <main id="top">
         {/* HERO */}
-        <header className="px-6 pb-16 pt-[150px] text-center">
+        <header className="px-6 pt-40 pb-10">
           <div className="mx-auto max-w-content">
-            <div className="eyebrow">For macOS · built for the age of agents</div>
-            <h1 className="mx-auto mt-4 text-balance text-[clamp(44px,7.5vw,92px)] font-extrabold leading-[.98] tracking-[-.035em]">
-              Your notch,
-              <br />
-              <span className="bg-gradient-to-r from-white via-pulse to-indigo bg-clip-text text-transparent">
-                finally alive.
-              </span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-[600px] text-balance text-[clamp(17px,2.2vw,21px)] text-muted">
-              NotchPulse turns the dead space around your MacBook notch into a live surface — watch your Claude Code
-              agents work in real time, glance at widgets, and ask Claude anything without leaving what you&rsquo;re doing.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3.5">
-              <MagneticButton href="#pricing" className="px-5 py-3 text-[15px]">
-                Get NotchPulse <span className="opacity-60 font-medium">· $5 lifetime</span>
-              </MagneticButton>
-              <MagneticButton href="#features" variant="ghost" className="px-5 py-3 text-[15px]">
-                See it work
-              </MagneticButton>
-            </div>
-            <div className="mt-[18px] font-mono text-[12.5px] tracking-[.02em] text-faint">
-              macOS 14+ · Apple Silicon &amp; Intel · ~6 MB · no account needed
-            </div>
+            <Reveal>
+              <div className="idx flex items-center gap-3">
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--live)", boxShadow: "0 0 6px var(--live)" }} />
+                  NotchPulse
+                </span>
+                <span className="text-faint">— a precision instrument for macOS</span>
+              </div>
+            </Reveal>
+            <Reveal delay={0.06}>
+              <h1 className="mt-6 max-w-[14ch] text-balance font-display text-[clamp(52px,9vw,120px)] font-semibold leading-[.92] tracking-tightest">
+                Your notch, alive.
+              </h1>
+            </Reveal>
+            <Reveal delay={0.12}>
+              <p className="mt-7 max-w-[52ch] text-[clamp(17px,2vw,21px)] leading-relaxed text-ink2">
+                The dark strip around your camera has done nothing for years. NotchPulse turns it into a living readout —
+                watch your AI agents work, glance at what matters, and ask Claude without leaving the screen you&rsquo;re on.
+              </p>
+            </Reveal>
+            <Reveal delay={0.18}>
+              <div className="mt-9 flex flex-wrap items-center gap-4">
+                <MagneticButton href="#pricing" className="px-6 py-3.5 text-[15px]">
+                  Get NotchPulse — ${PRICE.now}
+                </MagneticButton>
+                <a href="#tour" className="text-[15px] text-ink underline decoration-line2 decoration-1 underline-offset-[6px] hover:decoration-ink">
+                  Take the tour
+                </a>
+                <span className="font-mono text-[12.5px] text-faint">macOS 14+ · ~6&nbsp;MB · no account</span>
+              </div>
+            </Reveal>
           </div>
-          <NotchDemo />
+
+          <Reveal delay={0.24} className="mx-auto mt-16 max-w-content">
+            <div className="border-y border-line2">
+              <Pulse height={130} />
+            </div>
+          </Reveal>
         </header>
 
-        {/* FEATURES */}
-        <section id="features" className="px-6 py-24">
+        {/* TOUR — scroll-scrubbed notch */}
+        <div id="tour">
+          <NotchScroll />
+        </div>
+
+        {/* FEATURES — editorial index */}
+        <section id="features" className="px-6 py-28">
           <div className="mx-auto max-w-content">
-            <SecHead
-              eyebrow="What lives in your notch"
-              title="One quiet strip. Everything you keep glancing at."
-              sub="Hover to expand into a full dashboard. Leave it, and it melts back into the bezel — pitch black, invisible until you need it."
-            />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
-              <Card span="md:col-span-4">
-                <Glowy />
-                <Ic>◐</Ic>
-                <H3>See your agents work — live</H3>
-                <P>
-                  Every Claude Code session shows as its own lane: what it&rsquo;s doing right now, progress, and a ✓ or ✗
-                  the moment it finishes. Run two at once? You see both, tagged by session.
-                </P>
-                <div className="mt-4 rounded-xl border border-white/[.08] bg-black p-3.5 font-mono text-[13px]">
-                  <div className="text-pulse">› claude is editing NotchView.swift…</div>
-                  <div className="mt-2 text-muted">✓ done · 3 files · tests passed</div>
-                </div>
-              </Card>
-              <Card span="md:col-span-2">
-                <Glowy />
-                <Ic>✦</Ic>
-                <H3>Ask Claude, in the notch</H3>
-                <P>Type a question or summarize your clipboard — answered by your own Claude, right here. No tab-switching.</P>
-              </Card>
+            <Reveal>
+              <div className="flex items-end justify-between gap-6 border-b border-line2 pb-6">
+                <h2 className="max-w-[18ch] text-balance font-display text-[clamp(30px,4.6vw,52px)] font-semibold leading-[1.02] tracking-tight">
+                  Everything you keep glancing at, in one quiet strip.
+                </h2>
+                <span className="idx hidden whitespace-nowrap pb-2 sm:block">Six things it does</span>
+              </div>
+            </Reveal>
 
-              <Card span="md:col-span-2"><Ic>◴</Ic><H3>Glanceable widgets</H3><P>Clock, battery ring, live CPU/memory graphs, now-playing with album art.</P></Card>
-              <Card span="md:col-span-2"><Ic>▦</Ic><H3>Open apps &amp; windows</H3><P>Jump to any window across every Space and display — one click.</P></Card>
-              <Card span="md:col-span-2"><Ic>◷</Ic><H3>Focus &amp; Pomodoro</H3><P>A work/break timer with a progress ring and a gentle chime.</P></Card>
-
-              <Card span="md:col-span-3">
-                <Glowy />
-                <Ic>⛶</Ic><H3>Teleprompter &amp; camera</H3>
-                <P>Read a script straight down the lens with a built-in teleprompter and live camera mirror — speed and text size on the fly.</P>
-              </Card>
-              <Card span="md:col-span-3">
-                <Ic>✸</Ic><H3>Make it yours</H3>
-                <P>Editable pages, drag-to-arrange widgets, seven accent colors and an optional frosted-glass look.</P>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {["Pages you build", "7 accents", "Frosted glass", "Drag & drop shelf"].map((c) => (
-                    <span key={c} className="rounded-full border border-white/[.08] bg-white/[.02] px-2.5 py-1.5 font-mono text-[11px] text-muted">{c}</span>
-                  ))}
-                </div>
-              </Card>
+            <div>
+              {FEATURES.map((f, n) => (
+                <Reveal key={f.i} delay={(n % 2) * 0.05}>
+                  <article className="grid grid-cols-1 items-baseline gap-y-3 border-b border-line2 py-9 md:grid-cols-[120px_1fr_1.1fr] md:gap-x-10">
+                    <div className="idx pt-1">{f.i} / {f.k}</div>
+                    <h3 className="font-display text-[clamp(22px,2.6vw,30px)] font-medium tracking-tight">{f.t}</h3>
+                    <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink2">{f.d}</p>
+                  </article>
+                </Reveal>
+              ))}
             </div>
           </div>
         </section>
 
         {/* HOW */}
-        <section id="how" className="bg-gradient-to-b from-transparent via-indigo/[.04] to-transparent px-6 py-24">
+        <section id="how" className="border-y border-line2 bg-paper2/40 px-6 py-28">
           <div className="mx-auto max-w-content">
-            <SecHead eyebrow="Up and running in a minute" title="It just sits there — until your tools have something to say." />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Card><IcNum>1</IcNum><H3>Install &amp; launch</H3><P>A tiny menu-bar app. No Dock icon, no account. The notch stays pitch black until something happens.</P></Card>
-              <Card><IcNum>2</IcNum><H3>Connect Claude Code</H3><P>One hook line. Now every session you run lights up the notch — automatically, hands-off.</P></Card>
-              <Card><IcNum>3</IcNum><H3>Wire up anything</H3><P>Builds, CI, scripts — anything that can <span className="font-mono text-pulse">POST</span> to a local port appears as a live activity.</P></Card>
+            <Reveal>
+              <span className="idx">Setup</span>
+              <h2 className="mt-3 max-w-[20ch] text-balance font-display text-[clamp(28px,4.2vw,46px)] font-semibold leading-[1.04] tracking-tight">
+                It sits silent — until your tools have something to say.
+              </h2>
+            </Reveal>
+            <div className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-line2 bg-line2 md:grid-cols-3">
+              {[
+                { n: "1", t: "Install & launch", d: "A tiny menu-bar app — no Dock icon, no account. The notch stays black until something happens." },
+                { n: "2", t: "Connect Claude Code", d: "Add one hook line. Every session you run lights up the notch, automatically." },
+                { n: "3", t: "Wire up anything", d: "Builds, CI, scripts — anything that can POST to a local port shows up as a live activity." },
+              ].map((s) => (
+                <div key={s.n} className="bg-card p-8">
+                  <div className="font-mono text-[13px] text-live">0{s.n}</div>
+                  <h3 className="mt-5 font-display text-[20px] font-medium tracking-tight">{s.t}</h3>
+                  <p className="mt-2 text-[15px] leading-relaxed text-ink2">{s.d}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* PRICING */}
-        <section id="pricing" className="px-6 py-24">
-          <div className="mx-auto max-w-content">
-            <SecHead
-              eyebrow="Launch price"
-              title="Pay once. Yours forever."
-              sub="No subscription. Every future update — new widgets, new integrations — lands right here at no extra cost."
-            />
-            <Reveal className="flex justify-center">
-              <div className="relative w-[min(440px,100%)] overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-surface2 to-bg2 p-9">
-                <div
-                  className="pointer-events-none absolute inset-0 rounded-3xl p-px"
-                  style={{
-                    background: "linear-gradient(140deg,rgba(61,224,192,.6),rgba(110,99,255,.5),transparent 60%)",
-                    WebkitMask: "linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)",
-                    WebkitMaskComposite: "xor",
-                    maskComposite: "exclude",
-                  }}
-                />
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-hot px-3 py-1.5 font-mono text-[12px] font-semibold text-[#1A0907]">
-                  ◆ 50% off · launch week
-                </span>
-                <div className="my-1 mt-5 flex items-baseline gap-3.5">
-                  <span className="text-[64px] font-extrabold tracking-[-.04em]">${PRICE.now}</span>
-                  <span className="text-[26px] font-semibold text-faint line-through">${PRICE.was}</span>
-                  <span className="text-[15px] text-muted">one-time · lifetime</span>
+        <section id="pricing" className="px-6 py-28">
+          <div className="mx-auto grid max-w-content items-center gap-12 md:grid-cols-2">
+            <Reveal>
+              <span className="idx">Pricing</span>
+              <h2 className="mt-3 text-balance font-display text-[clamp(34px,5vw,60px)] font-semibold leading-[.98] tracking-tightest">
+                Pay once.<br />Yours for good.
+              </h2>
+              <p className="mt-6 max-w-[44ch] text-[17px] leading-relaxed text-ink2">
+                No subscription, ever. One price, every future update included — new widgets, new integrations, all of it.
+                This is launch week, so it&rsquo;s half off.
+              </p>
+              <Pulse height={70} className="mt-10 opacity-70" />
+            </Reveal>
+
+            <Reveal delay={0.08}>
+              <div className="rounded-3xl border border-line2 bg-card p-9 shadow-[0_30px_80px_rgba(23,24,26,.08)]">
+                <div className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[.12em] text-live">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--live)" }} />
+                  50% off · launch week
                 </div>
-                <ul className="my-6 flex flex-col gap-3">
+                <div className="mt-6 flex items-end gap-4">
+                  <span className="font-display text-[88px] font-semibold leading-[.8] tracking-tightest">${PRICE.now}</span>
+                  <span className="pb-2 font-display text-[30px] font-medium text-faint line-through">${PRICE.was}</span>
+                </div>
+                <div className="mt-1 font-mono text-[13px] text-ink2">one-time · lifetime license</div>
+
+                <ul className="mt-8 flex flex-col divide-y divide-line2 border-y border-line2">
                   {[
-                    "Lifetime license — pay once, no subscription",
-                    "Every future update included, forever",
-                    "Live Claude Code agent tracking + all widgets",
-                    "Ask Claude, teleprompter, camera, Pomodoro & more",
-                    "Works on all your personal Macs",
+                    "Lifetime license — no subscription",
+                    "Every future update, free forever",
+                    "Live agent tracking + all widgets",
+                    "Ask Claude, Studio, Pomodoro & more",
+                    "Use it on all your personal Macs",
                   ].map((t) => (
-                    <li key={t} className="flex items-start gap-3 text-[15px] text-[#D7DAE0]">
-                      <span className="mt-0.5 flex-none text-pulse">✓</span>
+                    <li key={t} className="flex items-start gap-3 py-3 text-[15px] text-ink">
+                      <span className="mt-2 inline-block h-1 w-1 flex-none rounded-full bg-ink" />
                       {t}
                     </li>
                   ))}
                 </ul>
-                <MagneticButton href={BUY_URL} external className="w-full px-6 py-4 text-[16px]">
+
+                <MagneticButton href={BUY_URL} external className="mt-8 w-full px-6 py-4 text-[16px]">
                   Buy NotchPulse — ${PRICE.now}
                 </MagneticButton>
-                <div className="mt-3.5 text-center text-[12.5px] text-faint">
-                  Secure checkout · instant download · 14-day money-back guarantee
+                <div className="mt-3 text-center font-mono text-[12px] text-faint">
+                  secure checkout · instant download · 14-day refund
                 </div>
               </div>
             </Reveal>
@@ -157,69 +172,37 @@ export default function Page() {
         </section>
 
         {/* UPDATES */}
-        <section id="updates" className="px-6 py-24">
+        <section id="updates" className="border-t border-line2 px-6 py-24">
           <div className="mx-auto max-w-content">
-            <SecHead eyebrow="Always improving" title="Updates land here." sub="Buy once and check back — new releases show up automatically in the app." />
-            <Reveal className="mx-auto flex max-w-[560px] flex-col">
-              <Rel v="v1.0" head="Launch." rest=" Live agents, widgets, Ask Claude, teleprompter, Pomodoro, themes." />
-              <Rel v="Next" head="Notifications & sounds" rest=" when an agent finishes, a global hotkey, and per-agent detail view." />
-              <Rel v="Soon" head="Calendar & weather" rest=" widgets, plus VS Code / Cursor / Zed integrations." />
+            <Reveal>
+              <span className="idx">Roadmap</span>
+              <h2 className="mt-3 font-display text-[clamp(26px,3.6vw,40px)] font-semibold tracking-tight">Updates land here.</h2>
             </Reveal>
+            <div className="mt-10">
+              {[
+                { v: "v1.0", h: "Out now.", r: " Live agents, widgets, Ask Claude, teleprompter, Pomodoro, themes." },
+                { v: "Next", h: "Finish alerts.", r: " Notifications and a sound when an agent completes, plus a global hotkey." },
+                { v: "Soon", h: "More glances.", r: " Calendar and weather widgets, and VS Code / Cursor / Zed support." },
+              ].map((u) => (
+                <Reveal key={u.v}>
+                  <div className="grid grid-cols-[80px_1fr] gap-5 border-b border-line2 py-5">
+                    <span className="font-mono text-[13px] text-live">{u.v}</span>
+                    <span className="text-[16px] text-ink2"><b className="font-semibold text-ink">{u.h}</b>{u.r}</span>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
 
-        <footer className="mt-10 border-t border-white/[.08] px-6 py-16 text-center text-[13.5px] text-faint">
-          <div className="mb-3.5 flex items-center justify-center gap-2.5 font-bold text-ink"><Glyph size={22} /> NotchPulse</div>
-          <div>Your notch, alive. · macOS 14+ · <a href="#pricing" className="text-muted hover:text-ink">Get it for ${PRICE.now}</a></div>
-          <div className="mt-2.5">© 2026 NotchPulse · <a href="#top" className="text-muted hover:text-ink">Back to top</a></div>
+        <footer className="px-6 py-16">
+          <div className="mx-auto flex max-w-content flex-col items-center gap-3 text-center">
+            <div className="flex items-center gap-2.5 font-display text-[18px] font-semibold"><Mark /> NotchPulse</div>
+            <div className="text-[13.5px] text-ink2">Your notch, alive · macOS 14+ · <a href="#pricing" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">Get it for ${PRICE.now}</a></div>
+            <div className="font-mono text-[12px] text-faint">© 2026 NotchPulse</div>
+          </div>
         </footer>
       </main>
     </>
-  );
-}
-
-/* ---- small presentational helpers ---- */
-function SecHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
-  return (
-    <Reveal className="mx-auto mb-12 max-w-[640px] text-center">
-      <div className="eyebrow">{eyebrow}</div>
-      <h2 className="mt-3.5 text-balance text-[clamp(30px,4.4vw,46px)] font-extrabold leading-[1.04] tracking-[-.03em]">{title}</h2>
-      {sub && <p className="mt-3.5 text-balance text-[18px] text-muted">{sub}</p>}
-    </Reveal>
-  );
-}
-function Card({ children, span = "" }: { children: React.ReactNode; span?: string }) {
-  return (
-    <Reveal className={span}>
-      <div className="relative h-full overflow-hidden rounded-[18px] border border-white/[.08] bg-gradient-to-b from-surface to-bg2 p-6">
-        {children}
-      </div>
-    </Reveal>
-  );
-}
-function Glowy() {
-  return <div className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full" style={{ background: "radial-gradient(closest-side,rgba(110,99,255,.2),transparent)" }} />;
-}
-function Ic({ children }: { children: React.ReactNode }) {
-  return <div className="mb-4 grid h-[34px] w-[34px] place-items-center rounded-[10px] border border-pulse/25 bg-pulse/10 text-[17px] text-pulse">{children}</div>;
-}
-function IcNum({ children }: { children: React.ReactNode }) {
-  return <div className="mb-4 grid h-[34px] w-[34px] place-items-center rounded-[10px] border border-pulse/25 bg-pulse/10 font-mono text-pulse">{children}</div>;
-}
-function H3({ children }: { children: React.ReactNode }) {
-  return <h3 className="mb-1.5 text-[19px] font-bold tracking-[-.01em]">{children}</h3>;
-}
-function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-[14.5px] text-muted">{children}</p>;
-}
-function Rel({ v, head, rest }: { v: string; head: string; rest: string }) {
-  return (
-    <div className="flex gap-4 border-b border-white/[.08] py-4">
-      <span className="w-16 flex-none font-mono text-[13px] font-semibold text-pulse">{v}</span>
-      <span className="text-[14.5px] text-muted">
-        <b className="font-semibold text-ink">{head}</b>
-        {rest}
-      </span>
-    </div>
   );
 }

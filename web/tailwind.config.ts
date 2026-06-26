@@ -5,32 +5,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "#07080A",
-        bg2: "#0B0D11",
-        surface: "#121419",
-        surface2: "#171A21",
-        ink: "#F4F5F7",
-        muted: "#9AA0AB",
-        faint: "#5C616C",
-        pulse: "#3DE0C0",
-        indigo: "#6E63FF",
-        hot: "#FF6B5E",
+        paper: "#E7E7E1",      // cool porcelain (chosen: slight green-grey bias)
+        paper2: "#DEDED7",     // recessed surface
+        card: "#EFEFEA",       // raised surface
+        ink: "#17181A",        // near-black, cool
+        ink2: "#5B5C57",       // warm-grey secondary
+        faint: "#9A9A92",
+        line: "#1718200F",     // hairline
+        line2: "#17182022",
+        live: "#E23A2E",       // recording-tally red, used tiny
+        device: "#0B0B0C",     // the notch black
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'system-ui', 'sans-serif'],
-        mono: ['ui-monospace', '"SF Mono"', 'Menlo', 'monospace'],
+        display: ["var(--font-display)", "Georgia", "serif"],
+        body: ["var(--font-body)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
-      maxWidth: { content: "1120px" },
-      keyframes: {
-        blink: { "0%,100%": { opacity: "1" }, "50%": { opacity: ".35" } },
-        spin: { to: { transform: "rotate(360deg)" } },
-        eq: { "0%,100%": { height: "6px" }, "50%": { height: "24px" } },
-      },
-      animation: {
-        blink: "blink 2.4s infinite",
-        spin: "spin .8s linear infinite",
-        eq: "eq 1s ease-in-out infinite",
-      },
+      maxWidth: { content: "1180px" },
+      letterSpacing: { tightest: "-.04em" },
     },
   },
   plugins: [],
