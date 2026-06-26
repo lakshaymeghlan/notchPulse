@@ -215,92 +215,70 @@ struct BatterySection: View {
 
 // MARK: - Open apps
 
-/// Open apps shown as a macOS-Dock-style row: icons magnify toward the cursor
-/// (bottom-anchored), with the hovered app's name floating above.
+/// Open apps as a clean Dock-style row: icons sit on a subtle tray and lift +
+/// enlarge with a floating name label on hover. Horizontally scrollable.
 struct OpenAppsSection: View {
     @EnvironmentObject var openApps: OpenAppsMonitor
-    @State private var hoverX: CGFloat? = nil
-
-    private let base: CGFloat = 26
-    private let spacing: CGFloat = 8
-    private let maxScale: CGFloat = 1.9
-    private let sigma: CGFloat = 42
 
     var body: some View {
         NotchSection(title: "Open Apps", systemImage: "square.grid.2x2") {
-            GeometryReader { geo in
-                let apps = openApps.apps
-                let step = base + spacing
-                let rowWidth = CGFloat(apps.count) * base + CGFloat(max(0, apps.count - 1)) * spacing
-                let inset = max(0, (geo.size.width - rowWidth) / 2)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .bottom, spacing: spacing) {
-                        ForEach(Array(apps.enumerated()), id: \.element.id) { i, app in
-                            let center = inset + CGFloat(i) * step + base / 2
-                            DockIcon(
-                                app: app,
-                                base: base,
-                                scale: scale(for: center),
-                                action: { openApps.activate(app) }
-                            )
-                        }
-                    }
-                    .frame(minWidth: geo.size.width, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 4)
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active(let p):
-                            withAnimation(.spring(response: 0.18, dampingFraction: 0.7)) { hoverX = p.x }
-                        case .ended:
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { hoverX = nil }
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(openApps.apps) { app in
+                        DockIcon(app: app) { openApps.activate(app) }
                     }
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .frame(maxHeight: .infinity, alignment: .center)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white.opacity(0.05))
+            )
         }
-    }
-
-    private func scale(for center: CGFloat) -> CGFloat {
-        guard let hoverX else { return 1 }
-        let d = hoverX - center
-        return 1 + (maxScale - 1) * exp(-(d * d) / (2 * sigma * sigma))
     }
 }
 
 private struct DockIcon: View {
     let app: OpenAppsMonitor.App
-    let base: CGFloat
-    let scale: CGFloat
     let action: () -> Void
     @State private var hovering = false
 
+    private let base: CGFloat = 30
+
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .top) {
-                if let icon = app.icon {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .interpolation(.high)
-                        .frame(width: base, height: base)
-                        .scaleEffect(scale, anchor: .bottom)
-                }
-                // Floating name label above the magnified icon (like the Dock).
-                if scale > 1.4 {
-                    Text(app.name)
-                        .font(.system(size: 9, weight: .medium))
-                        .lineLimit(1)
-                        .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(Capsule().fill(.black.opacity(0.8)))
-                        .foregroundStyle(.white)
-                        .fixedSize()
-                        .offset(y: -(base * scale) + 2)
-                        .zIndex(1)
-                }
+            if let icon = app.icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: base, height: base)
+                    .scaleEffect(hovering ? 1.35 : 1.0, anchor: .center)
+                    .shadow(color: .black.opacity(hovering ? 0.4 : 0), radius: 5, y: 3)
+                    .overlay(alignment: .bottom) {
+                        // Active-app dot.
+                        if app.isActive {
+                            Circle().fill(.white).frame(width: 3, height: 3).offset(y: 5)
+                        }
+                    }
+                    .overlay(alignment: .top) {
+                        if hovering {
+                            Text(app.name)
+                                .font(.system(size: 9, weight: .medium)).lineLimit(1).fixedSize()
+                                .padding(.horizontal, 6).padding(.vertical, 3)
+                                .background(Capsule().fill(.black.opacity(0.85)))
+                                .foregroundStyle(.white)
+                                .offset(y: -16)
+                                .transition(.opacity)
+                                .zIndex(1)
+                        }
+                    }
             }
         }
         .buttonStyle(.plain)
         .help(app.name)
+        .onHover { h in withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { hovering = h } }
     }
 }
 
@@ -680,6 +658,65 @@ struct PomodoroSection: View {
     }
 
     private var phaseColor: Color { pomo.phase == .work ? theme.accent.color : .orange }
+}
+
+// MARK: - Ask Claude
+
+struct AskSection: View {
+    @EnvironmentObject var ask: AskModel
+    @EnvironmentObject var theme: ThemeModel
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NotchSection(title: "Ask Claude", systemImage: "sparkles") {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    TextField("Ask or summarize…", text: $ask.prompt)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .focused($focused)
+                        .onSubmit { ask.submit() }
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.08)))
+                    Button {
+                        ask.isThinking ? ask.cancel() : ask.submit()
+                    } label: {
+                        Image(systemName: ask.isThinking ? "stop.fill" : "arrow.up.circle.fill")
+                            .font(.system(size: 18)).foregroundStyle(theme.accent.color)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button { ask.summarizeClipboard() } label: {
+                    Label("Summarize clipboard", systemImage: "doc.on.clipboard")
+                        .font(.system(size: 10, weight: .medium)).foregroundStyle(.white.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+
+                Divider().overlay(.white.opacity(0.08))
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    if ask.isThinking {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small).scaleEffect(0.7)
+                            Text("Thinking…").font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
+                        }
+                    } else if let err = ask.error {
+                        Text(err).font(.system(size: 11)).foregroundStyle(.red.opacity(0.9))
+                    } else if !ask.answer.isEmpty {
+                        Text(ask.answer)
+                            .font(.system(size: 12)).foregroundStyle(.white.opacity(0.9))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text("Answers appear here. Tip: pin the notch (📌) to keep it open.")
+                            .font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+                    }
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Camera mirror

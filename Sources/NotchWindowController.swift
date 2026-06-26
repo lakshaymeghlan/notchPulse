@@ -47,6 +47,7 @@ final class NotchWindowController {
     private let stats: SystemStatsMonitor
     private let pomodoro: PomodoroModel
     private let theme: ThemeModel
+    private let ask: AskModel
     private let pages: PagesModel
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
@@ -68,6 +69,7 @@ final class NotchWindowController {
         stats: SystemStatsMonitor,
         pomodoro: PomodoroModel,
         theme: ThemeModel,
+        ask: AskModel,
         pages: PagesModel
     ) {
         self.notchState = notchState
@@ -84,6 +86,7 @@ final class NotchWindowController {
         self.stats = stats
         self.pomodoro = pomodoro
         self.theme = theme
+        self.ask = ask
         self.pages = pages
 
         let panel = NotchPanel(
@@ -125,6 +128,7 @@ final class NotchWindowController {
             .environmentObject(stats)
             .environmentObject(pomodoro)
             .environmentObject(theme)
+            .environmentObject(ask)
             .environmentObject(pages)
         let hosting = NSHostingView(rootView: root)
         hosting.sizingOptions = []
@@ -202,9 +206,11 @@ final class NotchWindowController {
 
     private func evaluatePointer() {
         let inside = screenShapeRect().contains(NSEvent.mouseLocation)
-        // Capture the mouse only while over the notch; otherwise pass through.
-        if panel.ignoresMouseEvents != !inside {
-            panel.ignoresMouseEvents = !inside
+        // While pinned the panel stays interactive so you can type/scroll even
+        // if the cursor briefly leaves it.
+        let interactive = inside || notchState.isPinned
+        if panel.ignoresMouseEvents != !interactive {
+            panel.ignoresMouseEvents = !interactive
         }
         if notchState.isHovering != inside {
             notchState.isHovering = inside

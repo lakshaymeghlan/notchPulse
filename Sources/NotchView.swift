@@ -216,6 +216,7 @@ private struct ExpandedDashboard: View {
 private struct DashboardTopBar: View {
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var pages: PagesModel
+    @EnvironmentObject var notchState: NotchState
 
     var body: some View {
         HStack(spacing: 8) {
@@ -231,6 +232,14 @@ private struct DashboardTopBar: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
+            // Pin keeps the notch open while you type/read.
+            Button { notchState.isPinned.toggle() } label: {
+                Image(systemName: notchState.isPinned ? "pin.fill" : "pin")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(notchState.isPinned ? .white : .white.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help(notchState.isPinned ? "Unpin" : "Keep open")
             SettingsLink {
                 Image(systemName: "slider.horizontal.3").font(.system(size: 11, weight: .semibold))
             }
@@ -282,6 +291,7 @@ private struct SectionView: View {
         case .music:    MusicSection()
         case .stats:    StatsSection()
         case .pomodoro: PomodoroSection()
+        case .ask:      AskSection()
         case .shelf:    ShelfSection()
         case .camera:   CameraSection()
         case .teleprompter: TeleprompterSection()

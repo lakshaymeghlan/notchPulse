@@ -11,6 +11,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case music
     case stats
     case pomodoro
+    case ask
     case camera
     case teleprompter
     case calendar
@@ -28,6 +29,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .music: return "Music"
         case .stats: return "System"
         case .pomodoro: return "Pomodoro"
+        case .ask: return "Ask Claude"
         case .camera: return "Camera"
         case .teleprompter: return "Teleprompter"
         case .calendar: return "Calendar"
@@ -45,6 +47,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .music: return "music.note"
         case .stats: return "cpu"
         case .pomodoro: return "timer"
+        case .ask: return "sparkles"
         case .camera: return "camera"
         case .teleprompter: return "text.alignleft"
         case .calendar: return "calendar"
@@ -62,6 +65,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .music: return "Now playing in Spotify / Apple Music."
         case .stats: return "Live CPU and memory graphs."
         case .pomodoro: return "A focus timer with work / break cycles."
+        case .ask: return "Ask or summarize with your own Claude, in the notch."
         case .camera: return "A live camera mirror (off until you turn it on)."
         case .teleprompter: return "Scroll a script while you look at the lens."
         case .calendar: return "Your next events (asks permission)."
@@ -69,7 +73,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .stats, .apps, .windows, .music, .pomodoro, .teleprompter, .camera, .shelf] }
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .stats, .apps, .windows, .music, .pomodoro, .ask, .teleprompter, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"

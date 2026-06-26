@@ -13,7 +13,7 @@ struct NotchPage: Identifiable, Equatable, Codable {
 /// UserDefaults so edits survive relaunches.
 @MainActor
 final class PagesModel: ObservableObject {
-    private let defaultsKey = "notchPages.v3"
+    private let defaultsKey = "notchPages.v4"
 
     @Published var pages: [NotchPage] { didSet { persist() } }
     @Published var selectedIndex: Int = 0
@@ -30,13 +30,15 @@ final class PagesModel: ObservableObject {
 
     static let defaultPages: [NotchPage] = [
         NotchPage(id: "dashboard", title: "Dashboard", icon: "square.grid.2x2",
-                  widgets: [.clock, .agent, .battery, .stats]),
+                  widgets: [.clock, .agent, .apps, .stats]),
         NotchPage(id: "focus", title: "Focus", icon: "scope",
                   widgets: [.clock, .calendar, .pomodoro, .windows]),
         NotchPage(id: "media", title: "Media", icon: "play.circle",
-                  widgets: [.music, .apps, .camera, .shelf]),
+                  widgets: [.music, .battery, .camera, .shelf]),
         NotchPage(id: "studio", title: "Studio", icon: "text.alignleft",
                   widgets: [.teleprompter, .camera]),
+        NotchPage(id: "ask", title: "Ask", icon: "sparkles",
+                  widgets: [.ask]),
     ]
 
     var current: NotchPage {

@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let stats = SystemStatsMonitor()
     let pomodoro = PomodoroModel()
     let theme = ThemeModel()
+    let ask = AskModel()
     let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
@@ -41,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             stats: stats,
             pomodoro: pomodoro,
             theme: theme,
+            ask: ask,
             pages: pages
         )
         controller.show()
