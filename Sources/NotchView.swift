@@ -1,4 +1,12 @@
 import SwiftUI
+import AppKit
+
+/// Subtle trackpad haptics for a premium feel.
+enum Haptics {
+    static func pop() {
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .default)
+    }
+}
 
 /// The notch silhouette: square top flush with the bezel, rounded bottom.
 struct NotchShape: Shape {
@@ -60,6 +68,17 @@ struct NotchView: View {
                 shape
                     .fill(.black)
                     .overlay {
+                        // Premium depth when expanded: faint top-down sheen.
+                        if expanded {
+                            shape.fill(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.06), .clear],
+                                    startPoint: .top, endPoint: .center
+                                )
+                            )
+                        }
+                    }
+                    .overlay {
                         ZStack {
                             CompactContent(notchHeight: notchH)
                                 .opacity(expanded ? 0 : 1)
@@ -67,6 +86,10 @@ struct NotchView: View {
                                 .opacity(expanded ? 1 : 0)
                         }
                         .clipShape(shape)
+                    }
+                    .overlay {
+                        // Hairline edge — barely-there, reads as glass rim.
+                        shape.stroke(.white.opacity(expanded ? 0.10 : 0), lineWidth: 0.75)
                     }
                     .frame(width: w, height: h)
 
@@ -238,6 +261,7 @@ private struct FloatingTabBar: View {
             ForEach(Array(pages.pages.enumerated()), id: \.element.id) { index, page in
                 let selected = index == pages.selectedIndex
                 Button {
+                    Haptics.pop()
                     pages.select(index)
                 } label: {
                     Image(systemName: page.icon)

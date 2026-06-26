@@ -129,7 +129,10 @@ final class NotchWindowController {
         // re-evaluate whether the pointer is now inside the larger shape.
         notchState.$isExpanded
             .removeDuplicates()
-            .sink { [weak self] _ in self?.evaluatePointer() }
+            .sink { [weak self] expanded in
+                if expanded { Haptics.pop() }
+                self?.evaluatePointer()
+            }
             .store(in: &cancellables)
 
         installPointerMonitors()

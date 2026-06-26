@@ -148,19 +148,31 @@ struct BatterySection: View {
 
     var body: some View {
         NotchSection(title: "Battery", systemImage: "bolt.fill") {
-            HStack(spacing: 10) {
-                Image(systemName: battery.symbolName)
-                    .font(.system(size: 24))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(tint)
+            HStack(spacing: 12) {
+                // Circular ring gauge.
+                ZStack {
+                    Circle().stroke(.white.opacity(0.14), lineWidth: 4)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(battery.isPresent ? battery.level : 0) / 100)
+                        .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut, value: battery.level)
+                    if battery.isCharging || battery.isPluggedIn {
+                        Image(systemName: "bolt.fill").font(.system(size: 12)).foregroundStyle(tint)
+                    } else {
+                        Text("\(battery.isPresent ? battery.level : 0)")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .monospacedDigit().foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 46, height: 46)
+
                 VStack(alignment: .leading, spacing: 1) {
                     Text(battery.isPresent ? "\(battery.level)%" : "—")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white).monospacedDigit()
                     Text(stateLabel)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
                 }
             }
         }
@@ -342,9 +354,14 @@ struct MusicSection: View {
         NotchSection(title: "Music", systemImage: "music.note") {
             if let track = music.track {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(track.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white).lineLimit(1)
+                    HStack(alignment: .top) {
+                        Text(track.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white).lineLimit(1)
+                        Spacer(minLength: 8)
+                        EqualizerBars(active: track.isPlaying, color: .green)
+                            .frame(width: 22, height: 18)
+                    }
                     Text(track.artist.isEmpty ? track.app : track.artist)
                         .font(.system(size: 11))
                         .foregroundStyle(.white.opacity(0.6)).lineLimit(1)
@@ -378,8 +395,37 @@ private struct MusicButton: View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 22, height: 20)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Animated audio-style bars (premium now-playing flourish).
+struct EqualizerBars: View {
+    var active: Bool
+    var color: Color = .white
+    private let count = 5
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: !active)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .center, spacing: 2.5) {
+                ForEach(0..<count, id: \.self) { i in
+                    Capsule()
+                        .fill(color.opacity(active ? 0.95 : 0.4))
+                        .frame(width: 3, height: barHeight(i, t))
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .center)
+        }
+    }
+
+    private func barHeight(_ i: Int, _ t: Double) -> CGFloat {
+        guard active else { return 4 }
+        let phase = Double(i) * 0.7
+        return 4 + 13 * (0.5 + 0.5 * sin(t * 6.0 + phase))
     }
 }
 

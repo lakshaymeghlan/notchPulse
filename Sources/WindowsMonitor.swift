@@ -50,21 +50,31 @@ final class WindowsMonitor: ObservableObject {
     }
 
     func refresh() {
-        let opts = CGWindowListOption(arrayLiteral: [.optionOnScreenOnly, .excludeDesktopElements])
+        // No `.optionOnScreenOnly` → windows from ALL spaces/displays, not just
+        // the current one. Exclude desktop chrome.
+        let opts = CGWindowListOption(arrayLiteral: [.excludeDesktopElements])
         guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return }
 
         let myPID = ProcessInfo.processInfo.processIdentifier
+        var iconCache: [pid_t: NSImage?] = [:]
         var result: [Win] = []
         for info in list {
             guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue } // normal windows
             guard let pid = info[kCGWindowOwnerPID as String] as? pid_t, pid != myPID else { continue }
-            let appName = (info[kCGWindowOwnerName as String] as? String) ?? "App"
-            let title = (info[kCGWindowName as String] as? String) ?? ""
+            // Skip fully transparent windows.
+            if let alpha = info[kCGWindowAlpha as String] as? Double, alpha < 0.05 { continue }
             // Skip tiny utility windows.
             if let b = info[kCGWindowBounds as String] as? [String: CGFloat],
                (b["Width"] ?? 0) < 80 || (b["Height"] ?? 0) < 60 { continue }
+
+            let appName = (info[kCGWindowOwnerName as String] as? String) ?? "App"
+            let title = (info[kCGWindowName as String] as? String) ?? ""
             let id = (info[kCGWindowNumber as String] as? CGWindowID) ?? 0
-            let icon = NSRunningApplication(processIdentifier: pid)?.icon
+            let icon = iconCache[pid] ?? {
+                let i = NSRunningApplication(processIdentifier: pid)?.icon
+                iconCache[pid] = i
+                return i
+            }()
             result.append(Win(id: id,
                               title: title.isEmpty ? appName : title,
                               appName: appName,
