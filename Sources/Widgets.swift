@@ -215,70 +215,29 @@ struct BatterySection: View {
 
 // MARK: - Open apps
 
-/// Open apps as a clean Dock-style row: icons sit on a subtle tray and lift +
-/// enlarge with a floating name label on hover. Horizontally scrollable.
 struct OpenAppsSection: View {
     @EnvironmentObject var openApps: OpenAppsMonitor
 
+    private let columns = [GridItem(.adaptive(minimum: 36), spacing: 6)]
+
     var body: some View {
         NotchSection(title: "Open Apps", systemImage: "square.grid.2x2") {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
                     ForEach(openApps.apps) { app in
-                        DockIcon(app: app) { openApps.activate(app) }
+                        if let icon = app.icon {
+                            Button {
+                                openApps.activate(app)
+                            } label: {
+                                AppIcon(image: icon, side: 32)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Focus \(app.name)")
+                        }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .frame(maxHeight: .infinity, alignment: .center)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white.opacity(0.05))
-            )
-        }
-    }
-}
-
-private struct DockIcon: View {
-    let app: OpenAppsMonitor.App
-    let action: () -> Void
-    @State private var hovering = false
-
-    private let base: CGFloat = 30
-
-    var body: some View {
-        Button(action: action) {
-            if let icon = app.icon {
-                Image(nsImage: icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: base, height: base)
-                    .scaleEffect(hovering ? 1.35 : 1.0, anchor: .center)
-                    .shadow(color: .black.opacity(hovering ? 0.4 : 0), radius: 5, y: 3)
-                    .overlay(alignment: .bottom) {
-                        // Active-app dot.
-                        if app.isActive {
-                            Circle().fill(.white).frame(width: 3, height: 3).offset(y: 5)
-                        }
-                    }
-                    .overlay(alignment: .top) {
-                        if hovering {
-                            Text(app.name)
-                                .font(.system(size: 9, weight: .medium)).lineLimit(1).fixedSize()
-                                .padding(.horizontal, 6).padding(.vertical, 3)
-                                .background(Capsule().fill(.black.opacity(0.85)))
-                                .foregroundStyle(.white)
-                                .offset(y: -16)
-                                .transition(.opacity)
-                                .zIndex(1)
-                        }
-                    }
             }
         }
-        .buttonStyle(.plain)
-        .help(app.name)
-        .onHover { h in withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { hovering = h } }
     }
 }
 
