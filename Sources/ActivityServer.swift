@@ -109,6 +109,17 @@ final class ActivityServer {
     }
 
     private func process(_ request: HTTPRequest, on connection: NWConnection) {
+        // CORS preflight from the website.
+        if request.method == "OPTIONS" {
+            respond(connection, status: 204, reason: "No Content", json: "")
+            return
+        }
+        // Detection endpoint: the website pings this to know the app is running.
+        if request.method == "GET", request.path == "/ping" {
+            respond(connection, status: 200, reason: "OK",
+                    json: #"{"ok":true,"app":"NotchPulse"}"#)
+            return
+        }
         guard request.method == "POST" else {
             respond(connection, status: 405, reason: "Method Not Allowed",
                     json: #"{"ok":false,"error":"use POST"}"#)
@@ -138,6 +149,11 @@ final class ActivityServer {
         var head = "HTTP/1.1 \(status) \(reason)\r\n"
         head += "Content-Type: application/json\r\n"
         head += "Content-Length: \(body.count)\r\n"
+        // CORS so the NotchPulse website can detect the app and post a demo
+        // event. Loopback-only + cosmetic events, so wildcard origin is fine.
+        head += "Access-Control-Allow-Origin: *\r\n"
+        head += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+        head += "Access-Control-Allow-Headers: Content-Type\r\n"
         head += "Connection: close\r\n"
         head += "\r\n"
         var out = Data(head.utf8)
