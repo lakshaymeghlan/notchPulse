@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/g
 import "./globals.css";
 import SmoothScroll from "@/components/SmoothScroll";
 import Backdrop from "@/components/Backdrop";
+import ClientChrome from "@/components/ClientChrome";
 
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-body antialiased">
         <Backdrop />
         <SmoothScroll />
+        <ClientChrome />
         {children}
       </body>
     </html>

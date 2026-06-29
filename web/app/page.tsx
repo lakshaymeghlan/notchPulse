@@ -4,6 +4,7 @@ import Reveal from "@/components/Reveal";
 import WordsUp from "@/components/WordsUp";
 import MagneticButton from "@/components/MagneticButton";
 import HeroNotch from "@/components/HeroNotch";
+import LiveNotch from "@/components/LiveNotch";
 import CoffeeSupport from "@/components/CoffeeSupport";
 import CoffeeButton from "@/components/CoffeeButton";
 import Faq from "@/components/Faq";
@@ -63,6 +64,15 @@ export default function Page() {
         <div id="tour">
           <NotchScroll />
         </div>
+
+        {/* LIVE — the site reaches into your real notch */}
+        <section id="live" className="px-6 py-20">
+          <div className="mx-auto max-w-content">
+            <Reveal>
+              <LiveNotch />
+            </Reveal>
+          </div>
+        </section>
 
         {/* FEATURES — editorial index in a glass panel */}
         <section id="features" className="px-6 py-24">

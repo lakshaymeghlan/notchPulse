@@ -85,6 +85,19 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* custom cursor ring (additive, trails the system cursor) */
+.cursor-ring {
+  transition: width 0.2s, height 0.2s, margin 0.2s, background 0.2s, border-color 0.2s;
+}
+.cursor-ring--hot {
+  width: 52px !important;
+  height: 52px !important;
+  margin-left: -26px !important;
+  margin-top: -26px !important;
+  background: rgba(14, 15, 18, 0.05);
+  border-color: rgba(14, 15, 18, 0.45) !important;
+}
+
 /* a meaningful index label, e.g. "01 / LIVE" */
 .idx {
   font-family: var(--font-mono);
