@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { COFFEE_URL } from "@/lib/site";
+import GitHubStars from "./GitHubStars";
+import SoundToggle from "./SoundToggle";
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -23,7 +25,9 @@ export default function Nav() {
         <div className="flex items-center gap-7 text-[13.5px] text-ink2">
           <a href="#tour" className="hidden hover:text-ink sm:block">Tour</a>
           <a href="#features" className="hidden hover:text-ink sm:block">Features</a>
-          <a href="#support" className="hover:text-ink">Support</a>
+          <a href="#support" className="hidden hover:text-ink sm:block">Support</a>
+          <GitHubStars />
+          <SoundToggle />
           <a
             href={COFFEE_URL}
             target="_blank"
