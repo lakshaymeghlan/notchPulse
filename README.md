@@ -73,7 +73,18 @@ New widget? Add a `WidgetKind` case and a SwiftUI view — see `Widgets.swift`.
 | `title`    | string         | no       | Shown in the expanded card                        |
 | `source`   | string         | no       | Origin label (e.g. `Claude Code`)                 |
 | `detail`   | string         | no       | Secondary line                                    |
-| `progress` | number (0..1)  | no       | Drives the progress bar                           |
+| `progress` | number (0..1)  | no       | Drives the progress bar (and the ETA estimate)    |
+| `tokens`   | integer        | no       | Cumulative tokens — feeds the Tokens & Cost meter |
+| `cost`     | number (USD)   | no       | Cumulative cost — feeds the Tokens & Cost meter   |
+| `app`      | string         | no       | Owning app (bundle id or name) for one-tap Focus  |
+| `files`    | integer        | no       | Files touched — shown in the completion summary   |
+| `added`    | integer        | no       | Lines added — completion summary                  |
+| `removed`  | integer        | no       | Lines removed — completion summary                |
+| `tests`    | string         | no       | e.g. `24 passed` — completion summary             |
+
+`tokens`/`cost` are treated as cumulative (the meter never runs backwards).
+Any tool — CI jobs, editor extensions, build scripts — can post these fields;
+the event API is the integration boundary.
 
 Behavior:
 

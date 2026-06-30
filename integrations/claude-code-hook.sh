@@ -105,6 +105,11 @@ BODY="{\"event\":\"$(esc "$EVENT")\",\"id\":\"$(esc "$ID")\",\"title\":\"$(esc "
 if [ -n "$DETAIL" ]; then
   BODY="${BODY},\"detail\":\"$(esc "$DETAIL")\""
 fi
+# Owning terminal/editor for one-tap Focus from the notch. Set NOTCHPULSE_APP to
+# your terminal's bundle id or name, e.g. "com.apple.Terminal", "iTerm", "Code".
+if [ -n "${NOTCHPULSE_APP:-}" ]; then
+  BODY="${BODY},\"app\":\"$(esc "$NOTCHPULSE_APP")\""
+fi
 BODY="${BODY}}"
 
 # Fire and forget — short timeout, never block or fail the tool call.

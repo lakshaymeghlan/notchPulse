@@ -84,16 +84,24 @@ fields and bad input.
 - **Hook schema drift:** Claude Code hook fields can change between versions;
   the bridge script extracts defensively and the README points at the docs.
 
-## Feature roadmap (each behind a settings toggle, post-MVP)
+## Feature roadmap
 
-- Multiple concurrent agent lanes.
-- Token + cost ticker and ETA.
-- Completion summary (files touched, tests passed, diff stats).
-- Click-to-focus the owning terminal/editor.
-- Auto Do-Not-Disturb while agents run.
-- GitHub Actions / CI feed.
-- Sound on finish.
-- VS Code / Cursor / Zed extensions posting to the same server.
+Shipped:
+- ✅ Multiple concurrent agent lanes (`AgentSection`) + Agent Race view.
+- ✅ Token + cost meter (`TokenMeterSection`) and per-task ETA.
+- ✅ Completion summary — files touched, +/- diff, tests (`Activity.summaryLine`).
+- ✅ Click-to-focus the owning terminal/editor (`FocusAppButton` / `AppFocus`,
+  driven by the event `app` field).
+- ✅ Sound + speech on finish (`FinishFeedback`).
+- ✅ Approve-from-the-notch (`ApprovalStore`, `/approve` + `/decision`).
+
+Not yet / out of core scope:
+- Auto Do-Not-Disturb while agents run — **no public macOS API** to set Focus
+  programmatically; would require a user-installed Shortcut. Deferred.
+- GitHub Actions / CI feed — no app code needed: any CI job can `POST /event`
+  with `progress`/`tokens`/etc. A turnkey GH poller (needs a token) is future work.
+- VS Code / Cursor / Zed extensions — separate repos that post to the same
+  loopback event API; not part of the core app.
 
 ## Conventions
 

@@ -98,13 +98,23 @@ struct AgentSection: View {
                     }
                 }
             } else if let last = latest {
-                HStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 8) {
                     StatusGlyph(summary: last.status == .failure ? .failure(count: 1) : .success, size: 14)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(last.title).font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white).lineLimit(1)
                         Text(last.status == .failure ? "Failed" : "Done")
                             .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
+                        if let summary = last.summaryLine {
+                            Text(summary)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if let app = last.app {
+                        FocusAppButton(identifier: app)
                     }
                 }
             } else {
@@ -136,18 +146,50 @@ private struct AgentLane: View {
                         .font(.system(size: 9, weight: .semibold)).foregroundStyle(theme.accent.color)
                     Text("#\(String(activity.id.suffix(4)))")
                         .font(.system(size: 9)).foregroundStyle(.white.opacity(0.4)).monospaced()
+                    if let eta = activity.etaSeconds() {
+                        Text("· \(etaLabel(eta))")
+                            .font(.system(size: 9)).foregroundStyle(.white.opacity(0.45))
+                    }
                 }
                 if let p = activity.progress {
                     ProgressView(value: p).progressViewStyle(.linear).tint(theme.accent.color).frame(height: 2.5)
                 }
             }
             Spacer(minLength: 0)
+            if let app = activity.app {
+                FocusAppButton(identifier: app)
+            }
         }
     }
 
     private var primary: String {
         if let d = activity.detail, !d.isEmpty { return d }
         return activity.title
+    }
+}
+
+/// One-tap "Focus" back to the terminal/editor that owns an agent task.
+struct FocusAppButton: View {
+    let identifier: String
+    var body: some View {
+        Button { AppFocus.activate(identifier) } label: {
+            Image(systemName: "arrow.up.forward.app")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.55))
+        }
+        .buttonStyle(.plain)
+        .help("Focus \(identifier)")
+    }
+}
+
+/// Bring a running app to the front by bundle id or (fuzzy) name.
+enum AppFocus {
+    static func activate(_ identifier: String) {
+        let apps = NSWorkspace.shared.runningApplications
+        let match = apps.first { $0.bundleIdentifier == identifier }
+            ?? apps.first { $0.localizedName == identifier }
+            ?? apps.first { ($0.localizedName ?? "").localizedCaseInsensitiveContains(identifier) }
+        match?.activate()
     }
 }
 
@@ -206,6 +248,10 @@ private struct RaceLane: View {
                     .foregroundStyle(.white).lineLimit(1)
                 Text("#\(String(activity.id.suffix(4)))")
                     .font(.system(size: 8)).monospaced().foregroundStyle(.white.opacity(0.35))
+                if let eta = activity.etaSeconds() {
+                    Text(etaLabel(eta))
+                        .font(.system(size: 8)).foregroundStyle(.white.opacity(0.4))
+                }
                 Spacer(minLength: 4)
                 Text(hasProgress ? "\(Int(p * 100))%" : "…")
                     .font(.system(size: 9, weight: .medium)).monospacedDigit()

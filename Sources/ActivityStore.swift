@@ -18,6 +18,14 @@ struct ActivityEvent: Codable {
     var tokens: Int?
     /// Cumulative cost in USD for this activity.
     var cost: Double?
+    /// Bundle id or app name of the terminal/editor that owns this task, so the
+    /// notch can offer a one-tap "Focus" back to it.
+    var app: String?
+    /// Completion summary fields (shown when an agent finishes).
+    var files: Int?     // files touched
+    var added: Int?     // lines added
+    var removed: Int?   // lines removed
+    var tests: String?  // freeform, e.g. "24 passed"
 }
 
 /// A single tracked activity, as shown in the notch.
@@ -35,9 +43,41 @@ struct Activity: Identifiable, Equatable {
     var progress: Double?
     var tokens: Int?
     var cost: Double?
+    var app: String?
+    var files: Int?
+    var added: Int?
+    var removed: Int?
+    var tests: String?
     var status: Status
     var createdAt: Date
     var updatedAt: Date
+
+    /// Rough ETA from elapsed time and current progress (linear extrapolation).
+    /// nil until there's enough signal to be meaningful.
+    func etaSeconds(asOf: Date = Date()) -> TimeInterval? {
+        guard let p = progress, p > 0.02, p < 0.999 else { return nil }
+        let elapsed = asOf.timeIntervalSince(createdAt)
+        guard elapsed > 1 else { return nil }
+        return elapsed * (1 - p) / p
+    }
+
+    /// A one-line completion summary if any of the summary fields are present.
+    var summaryLine: String? {
+        var parts: [String] = []
+        if let f = files, f > 0 { parts.append("\(f) file\(f == 1 ? "" : "s")") }
+        if (added ?? 0) > 0 || (removed ?? 0) > 0 {
+            parts.append("+\(added ?? 0)/-\(removed ?? 0)")
+        }
+        if let t = tests, !t.isEmpty { parts.append("\(t) tests") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+/// Format a duration as a compact ETA like "~2m left" / "~45s left".
+func etaLabel(_ seconds: TimeInterval) -> String {
+    if seconds >= 3600 { return "~\(Int(seconds / 3600))h left" }
+    if seconds >= 60 { return "~\(Int((seconds / 60).rounded()))m left" }
+    return "~\(max(1, Int(seconds)))s left"
 }
 
 /// Single source of truth for what the notch displays. All mutation funnels
@@ -225,6 +265,11 @@ final class ActivityStore: ObservableObject {
         // partial updates never make the meter run backwards.
         if let t = event.tokens { a.tokens = max(a.tokens ?? 0, t) }
         if let c = event.cost { a.cost = max(a.cost ?? 0, c) }
+        if let app = event.app, !app.isEmpty { a.app = app }
+        if let f = event.files { a.files = f }
+        if let added = event.added { a.added = added }
+        if let removed = event.removed { a.removed = removed }
+        if let tests = event.tests, !tests.isEmpty { a.tests = tests }
         a.updatedAt = now()
     }
 
