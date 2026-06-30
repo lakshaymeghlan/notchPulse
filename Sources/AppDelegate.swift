@@ -55,10 +55,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let server = ActivityServer(store: store, approvals: approvals)
         server.start()
         self.server = server
+
+        // Global shortcut (⌥⌘N) to open settings from any app.
+        GlobalHotKey.shared.register {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
+        GlobalHotKey.shared.unregister()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

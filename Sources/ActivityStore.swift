@@ -14,6 +14,10 @@ struct ActivityEvent: Codable {
     var source: String?
     var detail: String?
     var progress: Double?
+    /// Cumulative tokens used by this activity (for the Tokens & Cost meter).
+    var tokens: Int?
+    /// Cumulative cost in USD for this activity.
+    var cost: Double?
 }
 
 /// A single tracked activity, as shown in the notch.
@@ -29,6 +33,8 @@ struct Activity: Identifiable, Equatable {
     var source: String?
     var detail: String?
     var progress: Double?
+    var tokens: Int?
+    var cost: Double?
     var status: Status
     var createdAt: Date
     var updatedAt: Date
@@ -215,6 +221,10 @@ final class ActivityStore: ObservableObject {
         if let s = event.source { a.source = s }
         if let d = event.detail { a.detail = d }
         if let p = event.progress { a.progress = min(max(p, 0), 1) }
+        // Tokens/cost are cumulative — take the larger so out-of-order or
+        // partial updates never make the meter run backwards.
+        if let t = event.tokens { a.tokens = max(a.tokens ?? 0, t) }
+        if let c = event.cost { a.cost = max(a.cost ?? 0, c) }
         a.updatedAt = now()
     }
 

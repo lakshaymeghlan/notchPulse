@@ -5,6 +5,8 @@ import SwiftUI
 enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case clock
     case agent
+    case race
+    case tokens
     case battery
     case apps
     case windows
@@ -24,6 +26,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .clock: return "Clock"
         case .agent: return "Agent"
+        case .race: return "Agent Race"
+        case .tokens: return "Tokens & Cost"
         case .battery: return "Battery"
         case .apps: return "Open Apps"
         case .windows: return "Open Windows"
@@ -43,6 +47,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .clock: return "clock"
         case .agent: return "waveform.path.ecg"
+        case .race: return "flag.checkered"
+        case .tokens: return "dollarsign.circle"
         case .battery: return "battery.100"
         case .apps: return "square.grid.2x2"
         case .windows: return "macwindow.on.rectangle"
@@ -62,6 +68,8 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .clock: return "Time and date at a glance."
         case .agent: return "Live tasks from Claude Code & other tools."
+        case .race: return "Multiple agents racing to the finish, ranked live."
+        case .tokens: return "Live token count and running cost for your agents."
         case .battery: return "Charge level and power state."
         case .apps: return "Apps you currently have open — click to focus."
         case .windows: return "Open windows — click to bring one forward."
@@ -77,7 +85,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .stats, .apps, .windows, .music, .pomodoro, .ask, .clipboard, .teleprompter, .camera, .shelf] }
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .race, .tokens, .battery, .stats, .apps, .windows, .music, .pomodoro, .ask, .clipboard, .teleprompter, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"

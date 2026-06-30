@@ -151,6 +151,173 @@ private struct AgentLane: View {
     }
 }
 
+// MARK: - Agent race (multiple agents racing to the finish)
+
+/// When several agents run at once, show them as lanes racing to a finish line,
+/// ranked live by progress. Great for parallel Claude Code sessions.
+struct RaceSection: View {
+    @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var theme: ThemeModel
+
+    private var racers: [Activity] {
+        store.activities
+            .filter { $0.status == .running }
+            .sorted { ($0.progress ?? 0) > ($1.progress ?? 0) }
+    }
+
+    var body: some View {
+        NotchSection(title: "Agent Race", systemImage: "flag.checkered") {
+            if racers.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("On your marks…").font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text("Run two or more agents to see them race.")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(Array(racers.prefix(4).enumerated()), id: \.element.id) { idx, a in
+                        RaceLane(rank: idx + 1, activity: a, color: theme.accent.color)
+                    }
+                    if racers.count > 4 {
+                        Text("+\(racers.count - 4) more in the pack")
+                            .font(.system(size: 9)).foregroundStyle(.white.opacity(0.4))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct RaceLane: View {
+    let rank: Int
+    let activity: Activity
+    let color: Color
+
+    private var p: CGFloat { CGFloat(min(max(activity.progress ?? 0, 0), 1)) }
+    private var hasProgress: Bool { activity.progress != nil }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Text(medal).font(.system(size: 11))
+                Text(activity.source ?? activity.title)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white).lineLimit(1)
+                Text("#\(String(activity.id.suffix(4)))")
+                    .font(.system(size: 8)).monospaced().foregroundStyle(.white.opacity(0.35))
+                Spacer(minLength: 4)
+                Text(hasProgress ? "\(Int(p * 100))%" : "…")
+                    .font(.system(size: 9, weight: .medium)).monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            GeometryReader { geo in
+                let w = geo.size.width
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.1)).frame(height: 5)
+                    if hasProgress {
+                        Capsule().fill(color)
+                            .frame(width: max(4, w * p), height: 5)
+                            .animation(.easeInOut(duration: 0.4), value: p)
+                    } else {
+                        // No progress reported — show an indeterminate shimmer.
+                        IndeterminateBar(color: color).frame(height: 5)
+                    }
+                    Image(systemName: rank == 1 ? "hare.fill" : "tortoise.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white)
+                        .offset(x: min(w - 10, max(0, w * p - 5)))
+                        .animation(.easeInOut(duration: 0.4), value: p)
+                    // Finish line.
+                    Rectangle().fill(.white.opacity(0.3)).frame(width: 1.5)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            .frame(height: 12)
+        }
+    }
+
+    private var medal: String {
+        switch rank {
+        case 1: return "🥇"
+        case 2: return "🥈"
+        case 3: return "🥉"
+        default: return "🏁"
+        }
+    }
+}
+
+/// A looping shimmer for racers that report no numeric progress.
+private struct IndeterminateBar: View {
+    let color: Color
+    @State private var x: CGFloat = -0.4
+    var body: some View {
+        GeometryReader { geo in
+            Capsule().fill(color.opacity(0.8))
+                .frame(width: geo.size.width * 0.35)
+                .offset(x: x * geo.size.width)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: false)) {
+                        x = 1.05
+                    }
+                }
+        }
+    }
+}
+
+// MARK: - Tokens & cost meter
+
+/// Live, session-wide token count and running cost across all agents. Values
+/// arrive on the event API (`tokens`, `cost`) — any integration can post them.
+struct TokenMeterSection: View {
+    @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var theme: ThemeModel
+
+    private var totalTokens: Int { store.activities.compactMap(\.tokens).reduce(0, +) }
+    private var totalCost: Double { store.activities.compactMap(\.cost).reduce(0, +) }
+    private var hasData: Bool { totalTokens > 0 || totalCost > 0 }
+
+    var body: some View {
+        NotchSection(title: "Tokens & Cost", systemImage: "dollarsign.circle") {
+            if !hasData {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("$0.00").font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("No usage reported yet.")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.45))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(costString)
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .foregroundStyle(theme.accent.color)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: totalCost)
+                    HStack(spacing: 5) {
+                        Image(systemName: "number").font(.system(size: 10, weight: .bold))
+                        Text(tokenString).font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit().contentTransition(.numericText())
+                        Text("tokens").font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
+                    }
+                    .foregroundStyle(.white)
+                    .animation(.snappy, value: totalTokens)
+                }
+            }
+        }
+    }
+
+    private var costString: String {
+        String(format: totalCost >= 10 ? "$%.2f" : "$%.3f", totalCost)
+    }
+    private var tokenString: String {
+        let t = totalTokens
+        if t >= 1_000_000 { return String(format: "%.2fM", Double(t) / 1_000_000) }
+        if t >= 1_000 { return String(format: "%.1fk", Double(t) / 1_000) }
+        return "\(t)"
+    }
+}
+
 struct PulsingDot: View {
     var color: Color = .green
     @State private var on = false
@@ -864,6 +1031,37 @@ private struct PrompterControl: View {
 
 // MARK: - Calendar
 
+/// One-tap "Join" for an event that carries a video-call link. Pulses gently
+/// when the meeting is imminent so it's easy to catch from the corner of your eye.
+private struct JoinButton: View {
+    let url: URL
+    let emphasized: Bool
+    @State private var pulse = false
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "video.fill").font(.system(size: 9, weight: .bold))
+                Text("Join").font(.system(size: 10, weight: .bold))
+            }
+            .foregroundStyle(emphasized ? .white : .green)
+            .padding(.horizontal, 9).padding(.vertical, 5)
+            .background(
+                Capsule().fill(emphasized ? Color.green : Color.green.opacity(0.16))
+            )
+            .scaleEffect(emphasized && pulse ? 1.06 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .help(url.absoluteString)
+        .onAppear {
+            guard emphasized else { return }
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { pulse = true }
+        }
+    }
+}
+
 struct CalendarSection: View {
     @EnvironmentObject var calendar: CalendarMonitor
 
@@ -904,6 +1102,9 @@ struct CalendarSection: View {
                                         .foregroundStyle(.white.opacity(0.55))
                                 }
                                 Spacer(minLength: 0)
+                                if let url = ev.joinURL {
+                                    JoinButton(url: url, emphasized: ev.isImminent)
+                                }
                             }
                         }
                     }

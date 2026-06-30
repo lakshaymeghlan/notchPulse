@@ -32,6 +32,8 @@ struct MenuBarContent: View {
             Text("Widgets & Settings…")
         }
         .keyboardShortcut(",")
+        Text("Open settings anywhere: ⌥⌘N")
+            .font(.caption)
         Button("Clear All Activity") {
             store.clearAll()
         }
@@ -63,10 +65,20 @@ struct AppearanceSettings: View {
     @EnvironmentObject var pomo: PomodoroModel
     @AppStorage("finishSound") private var finishSound = true
     @AppStorage("finishSpeech") private var finishSpeech = false
+    @AppStorage("liveEars") private var liveEars = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Appearance").font(.headline)
+
+            Toggle(isOn: $liveEars) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Live activity beside the notch")
+                    Text("Show agent status in the collapsed notch. Turn off to keep it flush so it never covers menu-bar icons.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Accent color").font(.subheadline).foregroundStyle(.secondary)

@@ -41,9 +41,19 @@ struct NotchShape: Shape {
 
 /// Shared sizing so the view and the window controller agree on the shape rect.
 enum NotchLayout {
+    /// Whether the live-activity "ears" beside the notch are drawn (default on).
+    /// Off ⇒ the collapsed surface stays flush to the physical notch so it never
+    /// covers menu-bar icons. Toggled in Settings → Appearance.
+    static var showsEars: Bool {
+        UserDefaults.standard.object(forKey: "liveEars") == nil
+            ? true : UserDefaults.standard.bool(forKey: "liveEars")
+    }
+
     static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
-        // Compact (Dynamic-Island-style) when there's activity, else exact notch.
-        active ? min(notchWidth + 230, NotchMetrics.expandedWidth) : notchWidth
+        guard active, showsEars else { return notchWidth }
+        // Hug the notch — just enough for a status glyph + short label. Kept
+        // tight so the live activity doesn't sprawl across the menu bar.
+        return min(notchWidth + 132, 360)
     }
 }
 
@@ -51,6 +61,8 @@ struct NotchView: View {
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var theme: ThemeModel
+    // Observed only so the surface re-lays-out when the "ears" toggle changes.
+    @AppStorage("liveEars") private var liveEars = true
 
     private var expanded: Bool { notchState.isExpanded }
     private var useGlass: Bool { theme.glass && notchState.isExpanded }
@@ -284,14 +296,15 @@ private struct ExpandedDashboard: View {
 
 private struct DashboardTopBar: View {
     @EnvironmentObject var store: ActivityStore
-    @EnvironmentObject var pages: PagesModel
     @EnvironmentObject var notchState: NotchState
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "waveform").font(.system(size: 11, weight: .bold))
-            Text(pages.current.title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+            // Brand mark only — the page title is omitted (the floating tab row
+            // already shows which page you're on) to keep the bar clean.
+            Image(systemName: "waveform")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white.opacity(0.4))
 
             Spacer()
 
@@ -398,6 +411,8 @@ private struct SectionView: View {
         switch kind {
         case .clock:    ClockSection()
         case .agent:    AgentSection()
+        case .race:     RaceSection()
+        case .tokens:   TokenMeterSection()
         case .battery:  BatterySection()
         case .apps:     OpenAppsSection()
         case .windows:  OpenWindowsSection()

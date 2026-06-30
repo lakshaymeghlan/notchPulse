@@ -12,6 +12,16 @@ final class CalendarMonitor: ObservableObject {
         let start: Date
         let isAllDay: Bool
         let color: CGColor?
+        /// A Zoom / Meet / Teams / Webex link pulled from the event, if any.
+        let joinURL: URL?
+
+        /// True for a timed event starting within the next 10 minutes (or already
+        /// underway) — the moment the "Join" button matters most.
+        var isImminent: Bool {
+            guard !isAllDay else { return false }
+            let delta = start.timeIntervalSinceNow
+            return delta < 600 && delta > -1800
+        }
     }
 
     enum Access { case unknown, granted, denied }
@@ -68,8 +78,36 @@ final class CalendarMonitor: ObservableObject {
                      title: $0.title ?? "Event",
                      start: $0.startDate,
                      isAllDay: $0.isAllDay,
-                     color: $0.calendar?.cgColor)
+                     color: $0.calendar?.cgColor,
+                     joinURL: Self.meetingLink(in: $0))
             }
+    }
+
+    /// Best-effort extraction of a video-call link from an event: its URL field
+    /// first, then any link found in the location or notes.
+    private static func meetingLink(in event: EKEvent) -> URL? {
+        if let u = event.url, isMeetingHost(u.host) { return u }
+        for text in [event.location, event.notes].compactMap({ $0 }) {
+            if let u = firstMeetingURL(in: text) { return u }
+        }
+        return nil
+    }
+
+    private static let meetingHosts = ["zoom.us", "meet.google.com", "teams.microsoft.com",
+                                       "teams.live.com", "webex.com", "whereby.com", "meet.jit.si"]
+
+    private static func isMeetingHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return meetingHosts.contains { host == $0 || host.hasSuffix(".\($0)") || host.contains($0) }
+    }
+
+    private static func firstMeetingURL(in text: String) -> URL? {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for match in detector.matches(in: text, range: range) {
+            if let url = match.url, isMeetingHost(url.host) { return url }
+        }
+        return nil
     }
 
     private func startTimer() {
