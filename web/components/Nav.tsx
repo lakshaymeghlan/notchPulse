@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { COFFEE_URL } from "@/lib/site";
 import GitHubStars from "./GitHubStars";
 import SoundToggle from "./SoundToggle";
 
@@ -29,12 +28,10 @@ export default function Nav() {
           <GitHubStars />
           <SoundToggle />
           <a
-            href={COFFEE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full bg-coffee px-4 py-2 text-[13px] font-semibold text-bean transition-transform hover:-translate-y-0.5"
+            href="#support"
+            className="inline-flex items-center gap-1.5 rounded-full bg-razor px-4 py-2 text-[13px] font-semibold text-white shadow-[0_6px_18px_rgba(77,155,255,.3)] transition-all hover:-translate-y-0.5 hover:bg-razorHi"
           >
-            ☕ Buy me a coffee
+            Fuel the dev ⚡
           </a>
         </div>
       </div>

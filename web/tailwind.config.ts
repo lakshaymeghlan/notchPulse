@@ -15,8 +15,10 @@ export default {
         line2: "#0E0F1218",
         live: "#E23A2E",       // recording-tally red, used tiny
         device: "#0B0B0C",     // the notch black
-        coffee: "#FFDD00",     // Buy Me a Coffee yellow
-        bean: "#3A2A1A",       // warm espresso brown
+        coffee: "#FFDD00",     // (legacy) Buy Me a Coffee yellow
+        bean: "#3A2A1A",
+        razor: "#4D9BFF",      // light Razorpay blue
+        razorHi: "#3B86F0",    // hover
       },
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],

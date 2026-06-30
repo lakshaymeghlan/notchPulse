@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { loadSound, soundOn, tick } from "@/lib/sound";
 import { Mark } from "./Nav";
+import { SUPPORT_URL } from "@/lib/site";
 
 /** Site-wide interactive chrome: cinematic intro, custom cursor, section rail,
  *  ⌘K command palette, and click sounds. All respect reduced-motion. */
@@ -131,7 +132,7 @@ function SectionRail() {
 /* ---------- ⌘K command palette ---------- */
 const COMMANDS = [
   { label: "Download NotchPulse", hint: "free", href: "/downloads/NotchPulse.zip", download: true },
-  { label: "Buy me a coffee", hint: "support", href: "https://www.buymeacoffee.com/notchpulse", external: true },
+  { label: "Support NotchPulse", hint: "tip", href: SUPPORT_URL, external: true },
   { label: "Take the tour", href: "#tour" },
   { label: "Make my notch react", href: "#live" },
   { label: "Features", href: "#features" },

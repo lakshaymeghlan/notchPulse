@@ -8,7 +8,7 @@ import LiveNotch from "@/components/LiveNotch";
 import CoffeeSupport from "@/components/CoffeeSupport";
 import CoffeeButton from "@/components/CoffeeButton";
 import Faq from "@/components/Faq";
-import { COFFEE_URL, DOWNLOAD_URL } from "@/lib/site";
+import { DOWNLOAD_URL } from "@/lib/site";
 
 const FEATURES = [
   { i: "01", k: "Live", t: "Agents you can watch", d: "Every Claude Code session gets its own lane — the task it's on, live progress, and a clear ✓ or ✗ when it lands. Run two at once and you see both." },
@@ -48,8 +48,8 @@ export default function Page() {
                   <MagneticButton href={DOWNLOAD_URL} download className="px-6 py-3.5 text-[15px]">
                     ↓ Download — it&rsquo;s free
                   </MagneticButton>
-                  <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[15px] text-ink underline decoration-line2 decoration-1 underline-offset-[6px] hover:decoration-ink">
-                    ☕ Buy me a coffee
+                  <a href="#support" className="inline-flex items-center gap-2 text-[15px] text-ink underline decoration-line2 decoration-1 underline-offset-[6px] hover:decoration-ink">
+                    Fuel the dev ⚡
                   </a>
                 </div>
                 <div className="mt-4 font-mono text-[12.5px] text-faint">macOS 14+ · ~6&nbsp;MB · no account · open it from the menu bar</div>
@@ -176,7 +176,7 @@ export default function Page() {
             <div className="text-[13.5px] text-ink2">
               Your notch, alive · macOS 14+ · free ·{" "}
               <a href="/changelog" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">changelog</a> ·{" "}
-              <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">buy me a coffee ☕</a>
+              <a href="#support" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">fuel the dev ⚡</a>
             </div>
             <div className="font-mono text-[12px] text-faint">© 2026 NotchPulse</div>
           </div>
