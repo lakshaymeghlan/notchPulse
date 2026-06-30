@@ -66,9 +66,9 @@ enum NotchLayout {
 
     static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
         guard active, showsEars else { return notchWidth }
-        // Snug pill — source and status hug the camera (centered by spacers).
-        // (Hide the live activity entirely via Settings → Appearance.)
-        return min(notchWidth + 168, 392)
+        // Wide enough that "Claude Code" + "running" sit ~8pt off each side of
+        // the camera without truncating. (Hide via Settings → Appearance.)
+        return min(notchWidth + 220, 460)
     }
 }
 
@@ -174,24 +174,26 @@ private struct CompactContent: View {
             Color.clear
         default:
             HStack(spacing: 0) {
-                Spacer(minLength: 6)
-                // Source — sits right against the left of the camera.
+                Spacer(minLength: 4)
+                // Source — sits 5pt off the left of the camera.
                 Text(leftLabel)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
-                    .lineLimit(1).truncationMode(.tail)
-                    .padding(.trailing, 11)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.trailing, 5)
 
                 // Center gap = physical notch (camera).
                 Color.clear.frame(width: notchWidth)
 
-                // Status — sits right against the right of the camera.
+                // Status — sits 5pt off the right of the camera.
                 Text(rightLabel)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(rightColor)
                     .lineLimit(1)
-                    .padding(.leading, 11)
-                Spacer(minLength: 6)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.leading, 5)
+                Spacer(minLength: 4)
             }
             // Align with the menu-bar text line (top of the notch), not the
             // vertical center of the taller notch — kills the empty top space.
