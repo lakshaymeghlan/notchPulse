@@ -111,16 +111,26 @@ struct CameraPreview: NSViewRepresentable {
             wantsLayer = true
             layer = CALayer()
             previewLayer.frame = bounds
-            // Mirror it like a selfie.
-            previewLayer.connection?.automaticallyAdjustsVideoMirroring = false
-            previewLayer.connection?.isVideoMirrored = true
             layer?.addSublayer(previewLayer)
         }
         required init?(coder: NSCoder) { fatalError() }
         override func layout() {
             super.layout()
             previewLayer.frame = bounds
-            previewLayer.connection?.isVideoMirrored = true
+            applyMirroring()
+        }
+        /// Mirror like a selfie — but ONLY after disabling auto-mirroring and
+        /// only if the connection supports it. Setting `isVideoMirrored` while
+        /// `automaticallyAdjustsVideoMirroring` is true throws an exception that,
+        /// during a layout pass, crashes the whole app.
+        private func applyMirroring() {
+            guard let c = previewLayer.connection else { return }
+            if c.automaticallyAdjustsVideoMirroring {
+                c.automaticallyAdjustsVideoMirroring = false
+            }
+            if c.isVideoMirroringSupported, !c.isVideoMirrored {
+                c.isVideoMirrored = true
+            }
         }
     }
 }

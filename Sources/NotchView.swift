@@ -64,11 +64,50 @@ enum NotchLayout {
             ? true : UserDefaults.standard.bool(forKey: "liveEars")
     }
 
-    static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
+    /// Dynamic collapsed width: each side is sized to the *wider* of the two
+    /// labels so the camera gap stays centered on the notch AND no text is ever
+    /// truncated. The pill grows/shrinks to fit "Claude Code", "2 agents", etc.
+    static func collapsedWidth(notchWidth: CGFloat, active: Bool, left: String, right: String) -> CGFloat {
         guard active, showsEars else { return notchWidth }
-        // Wide enough that "Claude Code" + "running" sit ~8pt off each side of
-        // the camera without truncating. (Hide via Settings → Appearance.)
-        return min(notchWidth + 220, 460)
+        let half = LiveActivity.halfWidth(left: left, right: right)
+        return notchWidth + 2 * half
+    }
+}
+
+/// Measures the live-activity labels so the collapsed pill can size itself.
+enum LiveActivity {
+    static let gap: CGFloat = 5        // space between text and the camera
+    static let outer: CGFloat = 16     // black padding beyond the text
+
+    static func labels(summary: ActivityStore.Summary, source: String?) -> (left: String, right: String) {
+        let left: String
+        if case .running(let n) = summary, n > 1 { left = "\(n) agents" }
+        else { left = source ?? "Agent" }
+        let right: String
+        switch summary {
+        case .running: right = "running"
+        case .success: right = "done"
+        case .failure: right = "failed"
+        case .idle: right = ""
+        }
+        return (left, right)
+    }
+
+    /// Width of one side: the wider label + its gap + outer padding (so both
+    /// halves are equal and the camera gap is centered). Capped for long names.
+    static func halfWidth(left: String, right: String) -> CGFloat {
+        let w = max(measure(left, weight: .semibold), measure(right, weight: .medium))
+        return min(w + gap + outer, 220)
+    }
+
+    /// Measure with the SAME font we render with — system 11pt, rounded design.
+    /// (Rounded is wider than the default system font; measuring with the wrong
+    /// one under-sizes the pill and clips the text.)
+    static func measure(_ s: String, weight: NSFont.Weight) -> CGFloat {
+        guard !s.isEmpty else { return 0 }
+        let base = NSFont.systemFont(ofSize: 11, weight: weight)
+        let font = (base.fontDescriptor.withDesign(.rounded)).flatMap { NSFont(descriptor: $0, size: 11) } ?? base
+        return ceil((s as NSString).size(withAttributes: [.font: font]).width) + 6
     }
 }
 
@@ -82,11 +121,15 @@ struct NotchView: View {
     private var expanded: Bool { notchState.isExpanded }
     private var useGlass: Bool { theme.glass && notchState.isExpanded }
     private var active: Bool { store.summary != .idle }
+    private var latestSource: String? {
+        (store.activities.first(where: { $0.status == .running }) ?? store.activities.first)?.source
+    }
 
     var body: some View {
         let notchW = notchState.notchSize.width  > 0 ? notchState.notchSize.width  : NotchMetrics.fallbackNotchWidth
         let notchH = notchState.notchSize.height > 0 ? notchState.notchSize.height : NotchMetrics.fallbackNotchHeight
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
+        let lbl = LiveActivity.labels(summary: store.summary, source: latestSource)
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active, left: lbl.left, right: lbl.right)
         let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
         let shape = NotchShape(topCornerRadius: 12, bottomCornerRadius: expanded ? 30 : (active ? 16 : 10))
@@ -100,25 +143,20 @@ struct NotchView: View {
                         if useGlass { GlassBackground().clipShape(shape) }
                     }
                     .overlay {
+                        // Render ONLY the active state — never both. Building the
+                        // expanded dashboard while collapsed kept its animations
+                        // (waveform/clock) running 24fps in the background and
+                        // burned CPU at idle. Now collapsed = static text only.
                         ZStack {
-                            CompactContent(notchWidth: notchW, notchHeight: notchH)
-                                .opacity(expanded ? 0 : 1)
-                            ExpandedDashboard(notchHeight: notchH)
-                                .opacity(expanded ? 1 : 0)
+                            if expanded {
+                                ExpandedDashboard(notchHeight: notchH)
+                                    .transition(.opacity)
+                            } else {
+                                CompactContent(notchWidth: notchW, notchHeight: notchH)
+                                    .transition(.opacity)
+                            }
                         }
                         .clipShape(shape)
-                    }
-                    .overlay {
-                        // A faint sheen ONLY on the lower rounded edge — the top
-                        // edge stays borderless so it blends into the bezel with
-                        // no visible seam.
-                        if expanded {
-                            shape.stroke(
-                                LinearGradient(
-                                    colors: [.clear, .clear, .white.opacity(0.10)],
-                                    startPoint: .top, endPoint: .bottom),
-                                lineWidth: 1)
-                        }
                     }
                     .overlay {
                         CelebrationOverlay(kind: notchState.celebration)
@@ -151,9 +189,8 @@ struct NotchView: View {
     /// edge. Glass mode uses a translucent wash instead (intentionally see-through).
     private var surfaceStyle: AnyShapeStyle {
         if useGlass {
-            return AnyShapeStyle(LinearGradient(
-                colors: [.black.opacity(0.5), .black.opacity(0.32)],
-                startPoint: .top, endPoint: .bottom))
+            // Translucent tint so the frosted blur behind it is visible.
+            return AnyShapeStyle(Color.black.opacity(0.34))
         }
         return AnyShapeStyle(Color.black)
     }
@@ -174,26 +211,27 @@ private struct CompactContent: View {
             Color.clear
         default:
             HStack(spacing: 0) {
-                Spacer(minLength: 4)
-                // Source — sits 5pt off the left of the camera.
+                // Source — right-aligned in its (equal) half so it sits 5pt off
+                // the left of the camera.
                 Text(leftLabel)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                    .padding(.trailing, 5)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, LiveActivity.gap)
 
-                // Center gap = physical notch (camera).
+                // Center gap = physical notch (camera) — stays centered.
                 Color.clear.frame(width: notchWidth)
 
-                // Status — sits 5pt off the right of the camera.
+                // Status — left-aligned in its (equal) half, 5pt off the right.
                 Text(rightLabel)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(rightColor)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                    .padding(.leading, 5)
-                Spacer(minLength: 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, LiveActivity.gap)
             }
             // Align with the menu-bar text line (top of the notch), not the
             // vertical center of the taller notch — kills the empty top space.
@@ -204,11 +242,9 @@ private struct CompactContent: View {
 
     private var latest: Activity? { store.activities.first(where: { $0.status == .running }) ?? store.activities.first }
 
-    /// Left ear — which agent (source name), or a count when several run.
-    private var leftLabel: String {
-        if case .running(let n) = store.summary, n > 1 { return "\(n) agents" }
-        return latest?.source ?? latest?.title ?? "Agent"
-    }
+    // Use the SAME labels the pill width is measured from, so the rendered text
+    // always fits exactly (no clipping / truncation).
+    private var leftLabel: String { LiveActivity.labels(summary: store.summary, source: latest?.source).left }
 
     /// Right ear — the status word.
     private var rightLabel: String {
@@ -400,6 +436,7 @@ private struct SectionsLayout: View {
         SectionView(kind: kind)
             .frame(width: width)
             .frame(maxHeight: .infinity)
+            .clipped()                       // oversized content scrolls/clips, never breaks the row
             .allowsHitTesting(!editing)
             .opacity(dragIndex != nil && dragIndex != index ? 0.45 : 1)
             .overlay { if editing { editChrome(kind) } }

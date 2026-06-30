@@ -1373,17 +1373,19 @@ struct WindowSnapSection: View {
                     }.buttonStyle(.plain)
                 }
             } else {
-                LazyVGrid(columns: columns, spacing: 6) {
-                    ForEach(slots, id: \.2) { slot, icon, label in
-                        Button { WindowSnap.snap(slot) } label: {
-                            VStack(spacing: 3) {
-                                Image(systemName: icon).font(.system(size: 15, weight: .medium))
-                                Text(label).font(.system(size: 8, weight: .medium))
-                            }
-                            .foregroundStyle(.white.opacity(0.85))
-                            .frame(maxWidth: .infinity).frame(height: 40)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
-                        }.buttonStyle(.plain)
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVGrid(columns: columns, spacing: 6) {
+                        ForEach(slots, id: \.2) { slot, icon, label in
+                            Button { WindowSnap.snap(slot) } label: {
+                                VStack(spacing: 3) {
+                                    Image(systemName: icon).font(.system(size: 15, weight: .medium))
+                                    Text(label).font(.system(size: 8, weight: .medium))
+                                }
+                                .foregroundStyle(.white.opacity(0.85))
+                                .frame(maxWidth: .infinity).frame(height: 38)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
+                            }.buttonStyle(.plain)
+                        }
                     }
                 }
             }
