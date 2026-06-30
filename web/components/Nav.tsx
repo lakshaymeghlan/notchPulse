@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import GitHubStars from "./GitHubStars";
 import SoundToggle from "./SoundToggle";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -26,6 +27,7 @@ export default function Nav() {
           <a href="#features" className="hidden hover:text-ink sm:block">Features</a>
           <a href="#support" className="hidden hover:text-ink sm:block">Support</a>
           <GitHubStars />
+          <ThemeToggle />
           <SoundToggle />
           <a
             href="#support"
