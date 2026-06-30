@@ -130,6 +130,10 @@ final class NotchWindowController {
 
         let container = NotchContainerView(frame: panel.contentLayoutRect)
         container.autoresizingMask = [.width, .height]
+        // Keep the whole layer tree non-opaque so .behindWindow blur isn't blocked.
+        container.wantsLayer = true
+        container.layer?.isOpaque = false
+        container.layer?.backgroundColor = .clear
         self.container = container
 
         let root = NotchView()
@@ -160,6 +164,8 @@ final class NotchWindowController {
         hosting.translatesAutoresizingMaskIntoConstraints = true
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
+        hosting.wantsLayer = true
+        hosting.layer?.isOpaque = false
         hosting.layer?.backgroundColor = .clear
         container.addSubview(hosting)
 

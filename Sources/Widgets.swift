@@ -92,21 +92,23 @@ struct NotchSection<Content: View>: View {
     @EnvironmentObject private var theme: ThemeModel
 
     var body: some View {
+        // 8pt scale: header→content gap 8, internal content gaps owned by each
+        // section (target 10). Consistent header treatment across all sections.
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(theme.accent.color.opacity(0.85))
+                    .foregroundStyle(theme.accent.color.opacity(0.9))
                 Text(title.uppercased())
                     .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .tracking(0.6)
-                    .foregroundStyle(.white.opacity(0.4))
+                    .tracking(0.7)
+                    .foregroundStyle(.white.opacity(0.5))
             }
             content()
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)   // 12 + 12 between columns ≈ 24pt gap
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
@@ -509,12 +511,13 @@ struct BatterySection: View {
 struct OpenAppsSection: View {
     @EnvironmentObject var openApps: OpenAppsMonitor
 
-    private let columns = [GridItem(.adaptive(minimum: 36), spacing: 6)]
+    // Equal 12pt gaps, consistent icon size; icons never touch the edges.
+    private let columns = [GridItem(.adaptive(minimum: 34), spacing: 12)]
 
     var body: some View {
         NotchSection(title: "Open Apps", systemImage: "square.grid.2x2") {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                     ForEach(openApps.apps) { app in
                         if let icon = app.icon {
                             Button {
@@ -527,6 +530,7 @@ struct OpenAppsSection: View {
                         }
                     }
                 }
+                .padding(.vertical, 1)
             }
         }
     }

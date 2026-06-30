@@ -66,6 +66,7 @@ struct AppearanceSettings: View {
     @AppStorage("finishSound") private var finishSound = true
     @AppStorage("finishSpeech") private var finishSpeech = false
     @AppStorage("liveEars") private var liveEars = true
+    @AppStorage("glassMode") private var glassModeRaw = GlassMode.frosted.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -96,12 +97,26 @@ struct AppearanceSettings: View {
 
             Toggle(isOn: $theme.glass) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Frosted glass panel")
-                    Text("Blurred translucent background when expanded (collapsed stays black).")
+                    Text("Glass panel")
+                    Text("A glassy background when expanded (collapsed stays black to blend with the notch).")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
             .toggleStyle(.switch)
+
+            if theme.glass {
+                let mode = GlassMode(rawValue: glassModeRaw) ?? .frosted
+                Picker("Glass style", selection: $glassModeRaw) {
+                    ForEach(GlassMode.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.menu)
+                .padding(.leading, 4)
+                Text(mode.blurb).font(.caption).foregroundStyle(.secondary).padding(.leading, 4)
+                if mode == .live {
+                    Button("Grant Screen Recording access") { CGRequestScreenCaptureAccess() }
+                        .font(.caption).padding(.leading, 4)
+                }
+            }
 
             Divider()
 

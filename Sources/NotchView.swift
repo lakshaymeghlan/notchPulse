@@ -64,20 +64,21 @@ enum NotchLayout {
             ? true : UserDefaults.standard.bool(forKey: "liveEars")
     }
 
-    /// Dynamic collapsed width: each side is sized to the *wider* of the two
-    /// labels so the camera gap stays centered on the notch AND no text is ever
-    /// truncated. The pill grows/shrinks to fit "Claude Code", "2 agents", etc.
+    /// Dynamic collapsed width: two EQUAL halves (sized to the wider label) on
+    /// each side of the camera, so the pill is symmetric and the labels read as
+    /// centered/balanced — not shoved to one side.
     static func collapsedWidth(notchWidth: CGFloat, active: Bool, left: String, right: String) -> CGFloat {
         guard active, showsEars else { return notchWidth }
-        let half = LiveActivity.halfWidth(left: left, right: right)
-        return notchWidth + 2 * half
+        return notchWidth + 2 * LiveActivity.halfWidth(left: left, right: right)
     }
 }
 
 /// Measures the live-activity labels so the collapsed pill can size itself.
 enum LiveActivity {
-    static let gap: CGFloat = 5        // space between text and the camera
-    static let outer: CGFloat = 16     // black padding beyond the text
+    static let gap: CGFloat = 4        // inner gap (text → camera)
+    static let outer: CGFloat = 24     // so each label keeps ≥14pt inset, centered
+    static let maxLabel: CGFloat = 150 // cap; longer labels truncate with an ellipsis
+    static let weight: NSFont.Weight = .medium   // same weight for both labels
 
     static func labels(summary: ActivityStore.Summary, source: String?) -> (left: String, right: String) {
         let left: String
@@ -96,8 +97,8 @@ enum LiveActivity {
     /// Width of one side: the wider label + its gap + outer padding (so both
     /// halves are equal and the camera gap is centered). Capped for long names.
     static func halfWidth(left: String, right: String) -> CGFloat {
-        let w = max(measure(left, weight: .semibold), measure(right, weight: .medium))
-        return min(w + gap + outer, 220)
+        let w = min(max(measure(left, weight: weight), measure(right, weight: weight)), maxLabel)
+        return w + gap + outer
     }
 
     /// Measure with the SAME font we render with — system 11pt, rounded design.
@@ -117,6 +118,8 @@ struct NotchView: View {
     @EnvironmentObject var theme: ThemeModel
     // Observed only so the surface re-lays-out when the "ears" toggle changes.
     @AppStorage("liveEars") private var liveEars = true
+    @AppStorage("glassMode") private var glassModeRaw = GlassMode.frosted.rawValue
+    private var glassMode: GlassMode { GlassMode(rawValue: glassModeRaw) ?? .frosted }
 
     private var expanded: Bool { notchState.isExpanded }
     private var useGlass: Bool { theme.glass && notchState.isExpanded }
@@ -137,11 +140,9 @@ struct NotchView: View {
         ZStack(alignment: .top) {
             Color.clear
             VStack(spacing: 0) {
-                shape
-                    .fill(surfaceStyle)
-                    .background {
-                        if useGlass { GlassBackground().clipShape(shape) }
-                    }
+                Color.clear
+                    .frame(width: w, height: h)
+                    .background { surfaceBackground(shape) }
                     .overlay {
                         // Render ONLY the active state — never both. Building the
                         // expanded dashboard while collapsed kept its animations
@@ -164,9 +165,7 @@ struct NotchView: View {
                             .allowsHitTesting(false)
                     }
                     .modifier(ShakeIf(active: notchState.celebration == .failure))
-                    .frame(width: w, height: h)
-                    .shadow(color: .black.opacity(expanded ? 0.45 : 0),
-                            radius: expanded ? 22 : 0, y: expanded ? 11 : 0)
+                    // No drop shadow — it read as a grey border on light screens.
 
                 if expanded {
                     FloatingTabBar()
@@ -184,15 +183,61 @@ struct NotchView: View {
         .animation(.spring(response: 0.36, dampingFraction: 0.82), value: AnimKey(expanded: expanded, active: active))
     }
 
-    /// The surface fill. Pitch black everywhere (collapsed AND expanded) so the
-    /// panel disappears into the physical notch with no visible seam at the top
-    /// edge. Glass mode uses a translucent wash instead (intentionally see-through).
-    private var surfaceStyle: AnyShapeStyle {
+    /// The panel surface. Pitch black by default (so it disappears into the
+    /// physical notch). In glass mode it's a real `NSVisualEffectView`
+    /// behind-window blur of the desktop/windows behind the panel — which a
+    /// transparent overlay can actually refract (SwiftUI `.glassEffect` falls
+    /// back to flat here) — clipped to the notch shape with a glass edge.
+    @ViewBuilder
+    private func surfaceBackground(_ shape: NotchShape) -> some View {
         if useGlass {
-            // Translucent tint so the frosted blur behind it is visible.
-            return AnyShapeStyle(Color.black.opacity(0.34))
+            switch glassMode {
+            case .frosted:
+                fauxGlass(shape)
+            case .liquid:
+                if #available(macOS 26.0, *) {
+                    ZStack {
+                        LiquidGlassBackground(cornerRadius: 22).clipShape(shape)
+                        glassRim(shape)
+                    }
+                } else {
+                    fauxGlass(shape)
+                }
+            case .live:
+                ZStack {
+                    LiveGlassView().clipShape(shape)
+                    glassRim(shape)
+                }
+            }
+        } else {
+            shape.fill(Color.black)
         }
-        return AnyShapeStyle(Color.black)
+    }
+
+    /// Phase 1 faux glass — reliable everywhere, zero permission: a
+    /// charcoal→black gradient + fine grain + a bright top rim.
+    @ViewBuilder
+    private func fauxGlass(_ shape: NotchShape) -> some View {
+        ZStack {
+            shape.fill(
+                LinearGradient(colors: [GlassStyle.topTint, GlassStyle.bottomTint],
+                               startPoint: .top, endPoint: .bottom))
+            NoiseTexture()
+                .opacity(GlassStyle.grainOpacity)
+                .blendMode(.overlay)
+                .clipShape(shape)
+            glassRim(shape)
+        }
+    }
+
+    /// Shared glass edge: bright top rim + faint hairline.
+    @ViewBuilder
+    private func glassRim(_ shape: NotchShape) -> some View {
+        shape.stroke(
+            LinearGradient(colors: [GlassStyle.rimTop, GlassStyle.rimBottom],
+                           startPoint: .top, endPoint: .bottom),
+            lineWidth: 1)
+        shape.stroke(GlassStyle.hairline, lineWidth: 0.5)
     }
 
     private struct AnimKey: Equatable { let expanded: Bool; let active: Bool }
@@ -207,34 +252,33 @@ private struct CompactContent: View {
 
     var body: some View {
         switch store.summary {
+        case _ where !NotchLayout.showsEars:
+            // Live activity hidden (Settings → Appearance) — flush black notch,
+            // never render text here or it would clip in the bare-notch width.
+            Color.clear
         case .idle:
             Color.clear
         default:
+            // Two equal halves with the camera gap centered between them. Each
+            // label is centered in its half → balanced, centered, symmetric.
             HStack(spacing: 0) {
-                // Source — right-aligned in its (equal) half so it sits 5pt off
-                // the left of the camera.
                 Text(leftLabel)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.trailing, LiveActivity.gap)
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: LiveActivity.maxLabel)   // cap → ellipsis
+                    .frame(maxWidth: .infinity)               // center in its half
 
-                // Center gap = physical notch (camera) — stays centered.
                 Color.clear.frame(width: notchWidth)
 
-                // Status — left-aligned in its (equal) half, 5pt off the right.
                 Text(rightLabel)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(rightColor)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, LiveActivity.gap)
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: LiveActivity.maxLabel)
+                    .frame(maxWidth: .infinity)
             }
-            // Align with the menu-bar text line (top of the notch), not the
-            // vertical center of the taller notch — kills the empty top space.
+            // Align with the menu-bar text line (top of the notch).
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.top, max(3, (notchHeight - 15) / 2))
         }
@@ -387,7 +431,8 @@ private struct ExpandedDashboard: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)   // 8 + section's 12 ≈ 20pt outer panel padding
+        .padding(.bottom, 4)
         .animation(.easeInOut(duration: 0.22), value: pages.selectedIndex)
     }
 }
@@ -640,7 +685,6 @@ private struct FloatingTabBar: View {
                             if selected {
                                 Circle().fill(theme.accent.color)
                                     .matchedGeometryEffect(id: "tabSelector", in: ns)
-                                    .shadow(color: theme.accent.color.opacity(0.5), radius: 6)
                             }
                         }
                         .contentShape(Circle())
@@ -650,13 +694,29 @@ private struct FloatingTabBar: View {
             }
         }
         .padding(5)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color(white: 0.1).opacity(0.9))
-                .overlay(Capsule(style: .continuous).stroke(.white.opacity(0.12), lineWidth: 0.8))
-        )
-        .shadow(color: .black.opacity(0.4), radius: 14, y: 7)
+        .background { barBackground }   // Liquid Glass (no drop shadow)
         .animation(.spring(response: 0.32, dampingFraction: 0.72), value: pages.selectedIndex)
+    }
+
+    @ViewBuilder private var barBackground: some View {
+        let capsule = Capsule(style: .continuous)
+        if theme.glass {
+            // Faux glass to match the panel (no drop shadow).
+            ZStack {
+                capsule.fill(
+                    LinearGradient(colors: [GlassStyle.topTint, GlassStyle.bottomTint],
+                                   startPoint: .top, endPoint: .bottom))
+                NoiseTexture().opacity(GlassStyle.grainOpacity).blendMode(.overlay).clipShape(capsule)
+                capsule.stroke(
+                    LinearGradient(colors: [GlassStyle.rimTop, GlassStyle.rimBottom],
+                                   startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1)
+            }
+        } else {
+            capsule
+                .fill(Color(white: 0.1).opacity(0.92))
+                .overlay(capsule.stroke(.white.opacity(0.12), lineWidth: 0.8))
+        }
     }
 }
 
