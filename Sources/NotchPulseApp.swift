@@ -61,6 +61,8 @@ struct SettingsView: View {
 struct AppearanceSettings: View {
     @EnvironmentObject var theme: ThemeModel
     @EnvironmentObject var pomo: PomodoroModel
+    @AppStorage("finishSound") private var finishSound = true
+    @AppStorage("finishSpeech") private var finishSpeech = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -88,6 +90,12 @@ struct AppearanceSettings: View {
                 }
             }
             .toggleStyle(.switch)
+
+            Divider()
+
+            Text("When an agent finishes").font(.subheadline).foregroundStyle(.secondary)
+            Toggle("Play a sound", isOn: $finishSound).toggleStyle(.switch)
+            Toggle("Speak it out loud", isOn: $finishSpeech).toggleStyle(.switch)
 
             Divider()
 

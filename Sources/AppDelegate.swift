@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let pomodoro = PomodoroModel()
     let theme = ThemeModel()
     let ask = AskModel()
+    let clipboard = ClipboardMonitor()
+    let approvals = ApprovalStore()
     let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
@@ -43,12 +45,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pomodoro: pomodoro,
             theme: theme,
             ask: ask,
+            clipboard: clipboard,
+            approvals: approvals,
             pages: pages
         )
         controller.show()
         windowController = controller
 
-        let server = ActivityServer(store: store)
+        let server = ActivityServer(store: store, approvals: approvals)
         server.start()
         self.server = server
     }

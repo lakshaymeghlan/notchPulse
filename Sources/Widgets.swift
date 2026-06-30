@@ -678,6 +678,47 @@ struct AskSection: View {
     }
 }
 
+// MARK: - Clipboard history
+
+struct ClipboardSection: View {
+    @EnvironmentObject var clipboard: ClipboardMonitor
+    @State private var copied: UUID?
+
+    var body: some View {
+        NotchSection(title: "Clipboard", systemImage: "doc.on.clipboard") {
+            if clipboard.items.isEmpty {
+                Text("Copy something — it'll show up here.")
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.4))
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(clipboard.items) { item in
+                            Button {
+                                clipboard.copy(item)
+                                copied = item.id
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: copied == item.id ? "checkmark" : "doc.on.doc")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(copied == item.id ? .green : .white.opacity(0.4))
+                                        .frame(width: 12)
+                                    Text(item.text.replacingOccurrences(of: "\n", with: " "))
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.white.opacity(0.85))
+                                        .lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(item.text)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Camera mirror
 
 struct CameraSection: View {

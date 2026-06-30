@@ -4,9 +4,21 @@
   "//2": "Replace /ABSOLUTE/PATH/TO with the real path to this repo's integrations/ dir.",
   "//3": "The hook schema can change between Claude Code versions — verify field",
   "//4": "names against https://docs.claude.com if events stop showing up.",
+  "//5": "approve.sh = Approve-from-the-notch: it pauses Bash/Write/Edit until you",
+  "//6": "tap Approve/Deny on the notch. It is fail-open (no app / timeout = normal",
+  "//7": "flow). Drop the approve.sh entry if you only want passive activity display.",
 
   "hooks": {
     "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/ABSOLUTE/PATH/TO/integrations/approve.sh"
+          }
+        ]
+      },
       {
         "matcher": "*",
         "hooks": [

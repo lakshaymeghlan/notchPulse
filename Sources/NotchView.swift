@@ -81,6 +81,12 @@ struct NotchView: View {
                         }
                         .clipShape(shape)
                     }
+                    .overlay {
+                        CelebrationOverlay(kind: notchState.celebration)
+                            .clipShape(shape)
+                            .allowsHitTesting(false)
+                    }
+                    .modifier(ShakeIf(active: notchState.celebration == .failure))
                     .frame(width: w, height: h)
 
                 if expanded {
@@ -154,6 +160,64 @@ private struct CompactContent: View {
     }
 }
 
+/// Confetti burst on success / red flash on failure, over the notch.
+private struct CelebrationOverlay: View {
+    let kind: NotchState.Celebration
+
+    var body: some View {
+        ZStack {
+            if kind == .success {
+                Confetti()
+            } else if kind == .failure {
+                Rectangle().fill(.red.opacity(0.18))
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.3), value: kind)
+    }
+}
+
+private struct Confetti: View {
+    @State private var go = false
+    private let pieces = 16
+    private let colors: [Color] = [.green, .mint, .teal, .white, .yellow]
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<pieces, id: \.self) { i in
+                let angle = Double(i) / Double(pieces) * 2 * .pi
+                let dist: CGFloat = go ? 60 : 0
+                Circle()
+                    .fill(colors[i % colors.count])
+                    .frame(width: 5, height: 5)
+                    .offset(x: cos(angle) * dist, y: sin(angle) * dist - (go ? 6 : 0))
+                    .opacity(go ? 0 : 1)
+                    .scaleEffect(go ? 0.4 : 1)
+            }
+        }
+        .onAppear { withAnimation(.easeOut(duration: 1.1)) { go = true } }
+    }
+}
+
+/// A quick horizontal shake when triggered (for failures).
+private struct ShakeIf: ViewModifier {
+    let active: Bool
+    @State private var phase: CGFloat = 0
+    func body(content: Content) -> some View {
+        content
+            .offset(x: phase)
+            .onChange(of: active) { _, on in
+                guard on else { return }
+                let seq = [-7.0, 7, -5, 5, -2, 2, 0]
+                for (i, v) in seq.enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.05) {
+                        withAnimation(.easeInOut(duration: 0.05)) { phase = CGFloat(v) }
+                    }
+                }
+            }
+    }
+}
+
 struct StatusGlyph: View {
     let summary: ActivityStore.Summary
     var size: CGFloat = 13
@@ -176,6 +240,7 @@ struct StatusGlyph: View {
 
 private struct ExpandedDashboard: View {
     @EnvironmentObject var pages: PagesModel
+    @EnvironmentObject var approvals: ApprovalStore
     let notchHeight: CGFloat
 
     private var sections: [WidgetKind] { pages.current.widgets }
@@ -186,6 +251,10 @@ private struct ExpandedDashboard: View {
                 .frame(height: max(notchHeight, 32))
 
             Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+
+            if !approvals.pending.isEmpty {
+                ApprovalBanner()
+            }
 
             Group {
                 if sections.isEmpty {
@@ -251,6 +320,50 @@ private struct DashboardTopBar: View {
     }
 }
 
+/// Amber banner shown when an agent is waiting for an Approve/Deny decision.
+private struct ApprovalBanner: View {
+    @EnvironmentObject var approvals: ApprovalStore
+
+    var body: some View {
+        if let a = approvals.pending.first {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .font(.system(size: 15)).foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 6) {
+                        Text("\(a.source) wants to run")
+                            .font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.65))
+                        if approvals.pending.count > 1 {
+                            Text("+\(approvals.pending.count - 1) more")
+                                .font(.system(size: 9, weight: .medium)).foregroundStyle(.orange)
+                        }
+                    }
+                    Text(a.command.isEmpty ? a.tool : a.command)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 8)
+                Button("Deny") { approvals.decide(a.id, allow: false) }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(.white.opacity(0.1)))
+                Button("Approve") { approvals.decide(a.id, allow: true) }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .background(Capsule().fill(.green))
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(.orange.opacity(0.14))
+            .overlay(Rectangle().fill(.orange.opacity(0.4)).frame(height: 1), alignment: .bottom)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+}
+
 /// Round tab buttons floating beneath the panel — switch pages (macnotch-style).
 private struct FloatingTabBar: View {
     @EnvironmentObject var pages: PagesModel
@@ -292,6 +405,7 @@ private struct SectionView: View {
         case .stats:    StatsSection()
         case .pomodoro: PomodoroSection()
         case .ask:      AskSection()
+        case .clipboard: ClipboardSection()
         case .shelf:    ShelfSection()
         case .camera:   CameraSection()
         case .teleprompter: TeleprompterSection()

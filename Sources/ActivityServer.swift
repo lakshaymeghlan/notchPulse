@@ -11,6 +11,7 @@ final class ActivityServer {
     static let defaultPort: UInt16 = 7842
 
     private let store: ActivityStore
+    private let approvals: ApprovalStore
     private let port: NWEndpoint.Port
     private let queue = DispatchQueue(label: "io.notchpulse.server", qos: .utility)
     private var listener: NWListener?
@@ -18,8 +19,9 @@ final class ActivityServer {
     /// Cap a single request body so a buggy/hostile client can't exhaust memory.
     private let maxBodyBytes = 64 * 1024
 
-    init(store: ActivityStore, port: UInt16 = ActivityServer.defaultPort) {
+    init(store: ActivityStore, approvals: ApprovalStore, port: UInt16 = ActivityServer.defaultPort) {
         self.store = store
+        self.approvals = approvals
         self.port = NWEndpoint.Port(rawValue: port) ?? 7842
     }
 
@@ -115,9 +117,37 @@ final class ActivityServer {
             return
         }
         // Detection endpoint: the website pings this to know the app is running.
-        if request.method == "GET", request.path == "/ping" {
+        if request.method == "GET", pathOnly(request.path) == "/ping" {
             respond(connection, status: 200, reason: "OK",
                     json: #"{"ok":true,"app":"NotchPulse"}"#)
+            return
+        }
+        // Agent asks for a decision: hook polls this until decided (or times out).
+        if request.method == "GET", pathOnly(request.path) == "/decision" {
+            let id = queryValue(request.path, "id") ?? ""
+            Task { @MainActor in
+                let json: String
+                switch self.approvals.decision(for: id) {
+                case .some(true): json = #"{"decision":"allow"}"#
+                case .some(false): json = #"{"decision":"deny"}"#
+                case .none: json = #"{"decision":"pending"}"#
+                }
+                self.respond(connection, status: 200, reason: "OK", json: json)
+            }
+            return
+        }
+        // Agent requests approval to run something.
+        if request.method == "POST", pathOnly(request.path) == "/approve" {
+            if let req = try? JSONDecoder().decode(ApprovalRequest.self, from: request.body), let id = req.id, !id.isEmpty {
+                Task { @MainActor in
+                    self.approvals.request(id: id, tool: req.tool ?? "Tool",
+                                           command: req.command ?? req.detail ?? "",
+                                           source: req.source ?? "Agent")
+                }
+                respond(connection, status: 200, reason: "OK", json: #"{"ok":true}"#)
+            } else {
+                respond(connection, status: 400, reason: "Bad Request", json: #"{"ok":false}"#)
+            }
             return
         }
         guard request.method == "POST" else {
@@ -144,6 +174,20 @@ final class ActivityServer {
         }
     }
 
+    private func pathOnly(_ p: String) -> String {
+        String(p.split(separator: "?", maxSplits: 1).first ?? "")
+    }
+    private func queryValue(_ p: String, _ key: String) -> String? {
+        guard let q = p.split(separator: "?", maxSplits: 1).dropFirst().first else { return nil }
+        for pair in q.split(separator: "&") {
+            let kv = pair.split(separator: "=", maxSplits: 1)
+            if kv.count == 2, kv[0] == Substring(key) {
+                return kv[1].removingPercentEncoding ?? String(kv[1])
+            }
+        }
+        return nil
+    }
+
     private func respond(_ connection: NWConnection, status: Int, reason: String, json: String) {
         let body = Data(json.utf8)
         var head = "HTTP/1.1 \(status) \(reason)\r\n"
@@ -162,6 +206,15 @@ final class ActivityServer {
             connection.cancel()
         })
     }
+}
+
+/// Approval request body from the hook.
+struct ApprovalRequest: Codable {
+    var id: String?
+    var tool: String?
+    var command: String?
+    var detail: String?
+    var source: String?
 }
 
 /// Bare-minimum HTTP/1.1 request parser. Returns nil until the full message

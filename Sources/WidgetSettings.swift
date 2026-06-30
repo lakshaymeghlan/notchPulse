@@ -12,6 +12,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case stats
     case pomodoro
     case ask
+    case clipboard
     case camera
     case teleprompter
     case calendar
@@ -30,6 +31,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .stats: return "System"
         case .pomodoro: return "Pomodoro"
         case .ask: return "Ask Claude"
+        case .clipboard: return "Clipboard"
         case .camera: return "Camera"
         case .teleprompter: return "Teleprompter"
         case .calendar: return "Calendar"
@@ -48,6 +50,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .stats: return "cpu"
         case .pomodoro: return "timer"
         case .ask: return "sparkles"
+        case .clipboard: return "doc.on.clipboard"
         case .camera: return "camera"
         case .teleprompter: return "text.alignleft"
         case .calendar: return "calendar"
@@ -66,6 +69,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .stats: return "Live CPU and memory graphs."
         case .pomodoro: return "A focus timer with work / break cycles."
         case .ask: return "Ask or summarize with your own Claude, in the notch."
+        case .clipboard: return "Recent copied text — click to re-copy."
         case .camera: return "A live camera mirror (off until you turn it on)."
         case .teleprompter: return "Scroll a script while you look at the lens."
         case .calendar: return "Your next events (asks permission)."
@@ -73,7 +77,7 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .stats, .apps, .windows, .music, .pomodoro, .ask, .teleprompter, .camera, .shelf] }
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .battery, .stats, .apps, .windows, .music, .pomodoro, .ask, .clipboard, .teleprompter, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"

@@ -48,11 +48,14 @@ final class NotchWindowController {
     private let pomodoro: PomodoroModel
     private let theme: ThemeModel
     private let ask: AskModel
+    private let clipboard: ClipboardMonitor
+    private let approvals: ApprovalStore
     private let pages: PagesModel
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
     private var positionRetries = 0
     private var pointerMonitors: [Any] = []
+    private let feedback = FinishFeedback()
 
     init(
         notchState: NotchState,
@@ -70,6 +73,8 @@ final class NotchWindowController {
         pomodoro: PomodoroModel,
         theme: ThemeModel,
         ask: AskModel,
+        clipboard: ClipboardMonitor,
+        approvals: ApprovalStore,
         pages: PagesModel
     ) {
         self.notchState = notchState
@@ -87,6 +92,8 @@ final class NotchWindowController {
         self.pomodoro = pomodoro
         self.theme = theme
         self.ask = ask
+        self.clipboard = clipboard
+        self.approvals = approvals
         self.pages = pages
 
         let panel = NotchPanel(
@@ -129,6 +136,8 @@ final class NotchWindowController {
             .environmentObject(pomodoro)
             .environmentObject(theme)
             .environmentObject(ask)
+            .environmentObject(clipboard)
+            .environmentObject(approvals)
             .environmentObject(pages)
         let hosting = NSHostingView(rootView: root)
         hosting.sizingOptions = []
@@ -158,11 +167,32 @@ final class NotchWindowController {
         // the notch pop open repeatedly during a session.
         store.onActivity = { [weak self] in
             guard let self else { return }
+            let prev = self.lastSummary
             let summary = self.store.summary
-            let shouldPeek = self.peekWorthy(from: self.lastSummary, to: summary)
+            let shouldPeek = self.peekWorthy(from: prev, to: summary)
             self.lastSummary = summary
+
+            // Finish edge → celebrate + sound/speech.
+            if self.isFinished(summary) && !self.isFinished(prev) {
+                let success: Bool = { if case .success = summary { return true } else { return false } }()
+                let latest = self.store.activities.first
+                self.notchState.celebrate(success ? .success : .failure)
+                self.feedback.finished(success: success, title: latest?.title, source: latest?.source)
+            }
+
             guard shouldPeek else { return }
             DispatchQueue.main.async { self.peek(hasContent: self.store.hasContent) }
+        }
+
+        // An agent is waiting on Approve/Deny → force the notch open until decided.
+        approvals.onChange = { [weak self] in
+            guard let self else { return }
+            let waiting = !self.approvals.pending.isEmpty
+            DispatchQueue.main.async {
+                if waiting { Haptics.pop() }
+                self.notchState.forceOpen = waiting
+                self.evaluatePointer()
+            }
         }
 
         NotificationCenter.default.addObserver(
@@ -258,15 +288,16 @@ final class NotchWindowController {
 
     private var lastSummary: ActivityStore.Summary = .idle
 
+    private func isFinished(_ s: ActivityStore.Summary) -> Bool {
+        if case .success = s { return true }
+        if case .failure = s { return true }
+        return false
+    }
+
     /// Whether a summary transition is worth peeking the notch open.
     private func peekWorthy(from old: ActivityStore.Summary, to new: ActivityStore.Summary) -> Bool {
-        func finished(_ s: ActivityStore.Summary) -> Bool {
-            if case .success = s { return true }
-            if case .failure = s { return true }
-            return false
-        }
-        if case .idle = old, new != .idle { return true }   // agent started
-        if finished(new) && !finished(old) { return true }   // agent finished
+        if case .idle = old, new != .idle { return true }       // agent started
+        if isFinished(new) && !isFinished(old) { return true }  // agent finished
         return false
     }
 
