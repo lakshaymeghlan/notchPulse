@@ -5,14 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#FFFFFF",      // clean white ground
-        paper2: "#F4F5F6",     // recessed surface
-        card: "#FBFBFC",       // raised surface
-        ink: "#0E0F12",        // near-black, cool
-        ink2: "#565A63",       // cool grey secondary
-        faint: "#9CA0A8",
-        line: "#0E0F1210",     // hairline
-        line2: "#0E0F1218",
+        // Themeable (light/dark) — driven by CSS vars in globals.css.
+        paper: "var(--c-paper)",      // ground
+        paper2: "var(--c-paper2)",    // recessed surface
+        card: "var(--c-card)",        // raised surface
+        ink: "rgb(var(--c-ink) / <alpha-value>)", // text (supports /opacity)
+        ink2: "var(--c-ink2)",        // secondary
+        faint: "var(--c-faint)",
+        line: "var(--c-line)",        // hairline
+        line2: "var(--c-line2)",
         live: "#E23A2E",       // recording-tally red, used tiny
         device: "#0B0B0C",     // the notch black
         coffee: "#FFDD00",     // (legacy) Buy Me a Coffee yellow

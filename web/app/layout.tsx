@@ -43,7 +43,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        {/* set theme before paint to avoid a flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=localStorage.getItem('np-theme')==='dark'?'dark':'light';document.documentElement.dataset.theme=m;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="font-body antialiased">
         <Backdrop />
         <SmoothScroll />

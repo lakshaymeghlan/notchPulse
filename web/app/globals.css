@@ -4,6 +4,28 @@
 
 :root {
   --live: #e23a2e;
+  /* light theme */
+  --c-paper: #ffffff;
+  --c-paper2: #f4f5f6;
+  --c-card: #fbfbfc;
+  --c-ink: 14 15 18;
+  --c-ink2: #565a63;
+  --c-faint: #9ca0a8;
+  --c-line: rgba(14, 15, 18, 0.06);
+  --c-line2: rgba(14, 15, 18, 0.1);
+}
+
+/* midnight glass */
+html[data-theme="dark"] {
+  --c-paper: #0a0c11;
+  --c-paper2: #12151d;
+  --c-card: #141823;
+  --c-ink: 233 235 241;
+  --c-ink2: #9aa1ae;
+  --c-faint: #5f6573;
+  --c-line: rgba(255, 255, 255, 0.08);
+  --c-line2: rgba(255, 255, 255, 0.13);
+  color-scheme: dark;
 }
 
 html {
@@ -47,6 +69,19 @@ html.lenis body {
   border: 1px solid rgba(14, 15, 18, 0.06);
 }
 
+/* dark "midnight glass" */
+html[data-theme="dark"] .glass {
+  background: rgba(22, 26, 35, 0.5);
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 24px 60px rgba(0, 0, 0, 0.5);
+}
+html[data-theme="dark"] .glass-soft {
+  background: rgba(12, 14, 20, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 /* ambient soft blobs the glass refracts (very subtle on white) */
 @keyframes drift {
   0% { transform: translate(0, 0) scale(1); }
@@ -60,23 +95,28 @@ html.lenis body {
   opacity: 0.5;
   will-change: transform;
 }
+html[data-theme="dark"] .blob {
+  opacity: 0.28;
+  mix-blend-mode: screen;
+}
 
 body {
-  background: #ffffff;
-  color: #0e0f12;
+  background: var(--c-paper);
+  color: rgb(var(--c-ink));
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
 }
 
 ::selection {
-  background: #0e0f12;
-  color: #ffffff;
+  background: rgb(var(--c-ink));
+  color: var(--c-paper);
 }
 
 /* visible keyboard focus (a11y) */
 :focus-visible {
-  outline: 2px solid #0e0f12;
+  outline: 2px solid rgb(var(--c-ink));
   outline-offset: 3px;
   border-radius: 6px;
 }
@@ -94,8 +134,8 @@ button {
   height: 52px !important;
   margin-left: -26px !important;
   margin-top: -26px !important;
-  background: rgba(14, 15, 18, 0.05);
-  border-color: rgba(14, 15, 18, 0.45) !important;
+  background: rgb(var(--c-ink) / 0.05);
+  border-color: rgb(var(--c-ink) / 0.45) !important;
 }
 
 /* a meaningful index label, e.g. "01 / LIVE" */

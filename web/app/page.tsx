@@ -1,5 +1,7 @@
 import Nav, { Mark } from "@/components/Nav";
-import NotchScroll from "@/components/NotchScroll";
+import DayScroll from "@/components/DayScroll";
+import Playground from "@/components/Playground";
+import Macbook3D from "@/components/Macbook3D";
 import Reveal from "@/components/Reveal";
 import WordsUp from "@/components/WordsUp";
 import MagneticButton from "@/components/MagneticButton";
@@ -60,16 +62,51 @@ export default function Page() {
           </div>
         </header>
 
-        {/* TOUR — scroll-scrubbed notch */}
+        {/* TOUR — "a day in the notch" scrollytelling */}
         <div id="tour">
-          <NotchScroll />
+          <DayScroll />
         </div>
+
+        {/* PLAYGROUND — drive a simulated notch */}
+        <section id="playground" className="px-6 py-24">
+          <div className="mx-auto max-w-content">
+            <Reveal>
+              <div className="mb-10 text-center">
+                <span className="idx">Try it here</span>
+                <h2 className="mt-3 text-balance font-display text-[clamp(28px,4.2vw,46px)] font-semibold leading-[1.04] tracking-tight">
+                  Take the notch for a spin.
+                </h2>
+                <p className="mx-auto mt-3 max-w-[42ch] text-[16px] text-ink2">No install needed — flip between states and poke at it.</p>
+              </div>
+            </Reveal>
+            <Reveal delay={0.05}>
+              <Playground />
+            </Reveal>
+          </div>
+        </section>
 
         {/* LIVE — the site reaches into your real notch */}
         <section id="live" className="px-6 py-20">
           <div className="mx-auto max-w-content">
             <Reveal>
               <LiveNotch />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ON YOUR MAC — CSS-3D macbook */}
+        <section id="mac" className="overflow-hidden px-6 py-28">
+          <div className="mx-auto max-w-content">
+            <Reveal>
+              <div className="mb-12 text-center">
+                <span className="idx">On your Mac</span>
+                <h2 className="mt-3 text-balance font-display text-[clamp(28px,4.4vw,50px)] font-semibold leading-[1.02] tracking-tight">
+                  It lives where you already look.
+                </h2>
+              </div>
+            </Reveal>
+            <Reveal delay={0.05}>
+              <Macbook3D />
             </Reveal>
           </div>
         </section>
