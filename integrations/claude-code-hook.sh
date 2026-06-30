@@ -72,6 +72,12 @@ EVENT=""
 DETAIL=""
 TITLE="Claude Code"
 case "$PHASE" in
+  prompt|UserPromptSubmit)
+    # Fires the instant you hit enter — so the notch lights up immediately,
+    # even while the model is still thinking (before any tool call).
+    EVENT="start"
+    DETAIL="Thinking…"
+    ;;
   pre|PreToolUse)
     EVENT="start"
     DETAIL="${TOOL:+Running ${TOOL}}"

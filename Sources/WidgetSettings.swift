@@ -19,6 +19,12 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
     case teleprompter
     case calendar
     case shelf
+    case todo
+    case notes
+    case dayProgress
+    case shortcuts
+    case bluetooth
+    case windowSnap
 
     var id: String { rawValue }
 
@@ -40,6 +46,12 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .teleprompter: return "Teleprompter"
         case .calendar: return "Calendar"
         case .shelf: return "Shelf"
+        case .todo: return "To-Do"
+        case .notes: return "Notes"
+        case .dayProgress: return "Day Progress"
+        case .shortcuts: return "Shortcuts"
+        case .bluetooth: return "Bluetooth"
+        case .windowSnap: return "Window Snap"
         }
     }
 
@@ -61,6 +73,12 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .teleprompter: return "text.alignleft"
         case .calendar: return "calendar"
         case .shelf: return "tray.full"
+        case .todo: return "checklist"
+        case .notes: return "note.text"
+        case .dayProgress: return "sun.max"
+        case .shortcuts: return "keyboard"
+        case .bluetooth: return "wave.3.right"
+        case .windowSnap: return "macwindow"
         }
     }
 
@@ -82,10 +100,16 @@ enum WidgetKind: String, CaseIterable, Identifiable, Codable {
         case .teleprompter: return "Scroll a script while you look at the lens."
         case .calendar: return "Your next events (asks permission)."
         case .shelf: return "Drag files onto the notch to stash them."
+        case .todo: return "A quick checklist that lives in the notch."
+        case .notes: return "A scratchpad for quick thoughts, always at hand."
+        case .dayProgress: return "How much of your workday has elapsed."
+        case .shortcuts: return "An editable keyboard-shortcut cheat sheet."
+        case .bluetooth: return "Your paired Bluetooth devices and what's connected."
+        case .windowSnap: return "Snap the focused window to halves, full, or center."
         }
     }
 
-    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .race, .tokens, .battery, .stats, .apps, .windows, .music, .pomodoro, .ask, .clipboard, .teleprompter, .camera, .shelf] }
+    static var ordered: [WidgetKind] { [.clock, .calendar, .agent, .race, .tokens, .battery, .stats, .apps, .windows, .music, .pomodoro, .todo, .notes, .dayProgress, .shortcuts, .ask, .clipboard, .bluetooth, .windowSnap, .teleprompter, .camera, .shelf] }
 }
 
 /// User's enabled widgets, persisted to UserDefaults. This is the "add a widget"

@@ -21,19 +21,34 @@ struct NotchShape: Shape {
     func path(in rect: CGRect) -> Path {
         let tr = max(0, min(topCornerRadius, rect.height / 2))
         let br = max(0, min(bottomCornerRadius, rect.height - tr, rect.width / 2))
+        // Cubic control factor for a smooth, Apple-style continuous corner
+        // (rather than a slightly pinched quadratic arc).
+        let k: CGFloat = 0.5523
         var p = Path()
+
+        // Top-left fillet (curves inward from the bezel).
         p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        p.addQuadCurve(to: CGPoint(x: rect.minX + tr, y: rect.minY + tr),
-                       control: CGPoint(x: rect.minX + tr, y: rect.minY))
+        p.addCurve(to: CGPoint(x: rect.minX + tr, y: rect.minY + tr),
+                   control1: CGPoint(x: rect.minX + tr * k, y: rect.minY),
+                   control2: CGPoint(x: rect.minX + tr, y: rect.minY + tr * (1 - k)))
+
+        // Left edge down to the bottom-left squircle corner.
         p.addLine(to: CGPoint(x: rect.minX + tr, y: rect.maxY - br))
-        p.addQuadCurve(to: CGPoint(x: rect.minX + tr + br, y: rect.maxY),
-                       control: CGPoint(x: rect.minX + tr, y: rect.maxY))
+        p.addCurve(to: CGPoint(x: rect.minX + tr + br, y: rect.maxY),
+                   control1: CGPoint(x: rect.minX + tr, y: rect.maxY - br * (1 - k)),
+                   control2: CGPoint(x: rect.minX + tr + br * (1 - k), y: rect.maxY))
+
+        // Bottom edge to the bottom-right squircle corner.
         p.addLine(to: CGPoint(x: rect.maxX - tr - br, y: rect.maxY))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX - tr, y: rect.maxY - br),
-                       control: CGPoint(x: rect.maxX - tr, y: rect.maxY))
+        p.addCurve(to: CGPoint(x: rect.maxX - tr, y: rect.maxY - br),
+                   control1: CGPoint(x: rect.maxX - tr - br * (1 - k), y: rect.maxY),
+                   control2: CGPoint(x: rect.maxX - tr, y: rect.maxY - br * (1 - k)))
+
+        // Right edge up to the top-right fillet.
         p.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY + tr))
-        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY),
-                       control: CGPoint(x: rect.maxX - tr, y: rect.minY))
+        p.addCurve(to: CGPoint(x: rect.maxX, y: rect.minY),
+                   control1: CGPoint(x: rect.maxX - tr, y: rect.minY + tr * (1 - k)),
+                   control2: CGPoint(x: rect.maxX - tr * k, y: rect.minY))
         p.closeSubpath()
         return p
     }
@@ -51,9 +66,9 @@ enum NotchLayout {
 
     static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
         guard active, showsEars else { return notchWidth }
-        // Hug the notch — just enough for a status glyph + short label. Kept
-        // tight so the live activity doesn't sprawl across the menu bar.
-        return min(notchWidth + 132, 360)
+        // Snug pill — source and status hug the camera (centered by spacers).
+        // (Hide the live activity entirely via Settings → Appearance.)
+        return min(notchWidth + 168, 392)
     }
 }
 
@@ -74,24 +89,36 @@ struct NotchView: View {
         let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
         let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
-        let shape = NotchShape(topCornerRadius: 11, bottomCornerRadius: expanded ? 34 : (active ? 16 : 10))
+        let shape = NotchShape(topCornerRadius: 12, bottomCornerRadius: expanded ? 30 : (active ? 16 : 10))
 
         ZStack(alignment: .top) {
             Color.clear
             VStack(spacing: 0) {
                 shape
-                    .fill(useGlass ? Color.black.opacity(0.4) : Color.black)   // pitch black blends with the notch
+                    .fill(surfaceStyle)
                     .background {
                         if useGlass { GlassBackground().clipShape(shape) }
                     }
                     .overlay {
                         ZStack {
-                            CompactContent(notchHeight: notchH)
+                            CompactContent(notchWidth: notchW, notchHeight: notchH)
                                 .opacity(expanded ? 0 : 1)
                             ExpandedDashboard(notchHeight: notchH)
                                 .opacity(expanded ? 1 : 0)
                         }
                         .clipShape(shape)
+                    }
+                    .overlay {
+                        // A faint sheen ONLY on the lower rounded edge — the top
+                        // edge stays borderless so it blends into the bezel with
+                        // no visible seam.
+                        if expanded {
+                            shape.stroke(
+                                LinearGradient(
+                                    colors: [.clear, .clear, .white.opacity(0.10)],
+                                    startPoint: .top, endPoint: .bottom),
+                                lineWidth: 1)
+                        }
                     }
                     .overlay {
                         CelebrationOverlay(kind: notchState.celebration)
@@ -100,17 +127,35 @@ struct NotchView: View {
                     }
                     .modifier(ShakeIf(active: notchState.celebration == .failure))
                     .frame(width: w, height: h)
+                    .shadow(color: .black.opacity(expanded ? 0.45 : 0),
+                            radius: expanded ? 22 : 0, y: expanded ? 11 : 0)
 
                 if expanded {
                     FloatingTabBar()
                         .padding(.top, NotchMetrics.tabBarGap)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.86, anchor: .top)
+                                .combined(with: .opacity)
+                                .combined(with: .move(edge: .top)),
+                            removal: .opacity))
                 }
             }
         }
         .frame(width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.snappy(duration: 0.2), value: AnimKey(expanded: expanded, active: active))
+        .animation(.spring(response: 0.36, dampingFraction: 0.82), value: AnimKey(expanded: expanded, active: active))
+    }
+
+    /// The surface fill. Pitch black everywhere (collapsed AND expanded) so the
+    /// panel disappears into the physical notch with no visible seam at the top
+    /// edge. Glass mode uses a translucent wash instead (intentionally see-through).
+    private var surfaceStyle: AnyShapeStyle {
+        if useGlass {
+            return AnyShapeStyle(LinearGradient(
+                colors: [.black.opacity(0.5), .black.opacity(0.32)],
+                startPoint: .top, endPoint: .bottom))
+        }
+        return AnyShapeStyle(Color.black)
     }
 
     private struct AnimKey: Equatable { let expanded: Bool; let active: Bool }
@@ -120,6 +165,7 @@ struct NotchView: View {
 
 private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
+    let notchWidth: CGFloat
     let notchHeight: CGFloat
 
     var body: some View {
@@ -127,43 +173,52 @@ private struct CompactContent: View {
         case .idle:
             Color.clear
         default:
-            HStack(spacing: 8) {
-                StatusGlyph(summary: store.summary, size: 13)
-                Text(leadingLabel)
+            HStack(spacing: 0) {
+                Spacer(minLength: 6)
+                // Source — sits right against the left of the camera.
+                Text(leftLabel)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
-                    .lineLimit(1)
-                Spacer(minLength: 78)   // clear the camera
-                Text(trailingLabel)
+                    .lineLimit(1).truncationMode(.tail)
+                    .padding(.trailing, 11)
+
+                // Center gap = physical notch (camera).
+                Color.clear.frame(width: notchWidth)
+
+                // Status — sits right against the right of the camera.
+                Text(rightLabel)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(trailingColor)
-                    .monospacedDigit()
+                    .foregroundStyle(rightColor)
                     .lineLimit(1)
+                    .padding(.leading, 11)
+                Spacer(minLength: 6)
             }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Align with the menu-bar text line (top of the notch), not the
+            // vertical center of the taller notch — kills the empty top space.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, max(3, (notchHeight - 15) / 2))
         }
     }
 
     private var latest: Activity? { store.activities.first(where: { $0.status == .running }) ?? store.activities.first }
 
-    private var leadingLabel: String {
-        guard let a = latest else { return "" }
-        return a.source ?? a.title
+    /// Left ear — which agent (source name), or a count when several run.
+    private var leftLabel: String {
+        if case .running(let n) = store.summary, n > 1 { return "\(n) agents" }
+        return latest?.source ?? latest?.title ?? "Agent"
     }
 
-    private var trailingLabel: String {
+    /// Right ear — the status word.
+    private var rightLabel: String {
         switch store.summary {
-        case .running:
-            if let p = latest?.progress { return "\(Int(p * 100))%" }
-            return "Running"
-        case .success: return "Done"
-        case .failure: return "Failed"
+        case .running: return "running"
+        case .success: return "done"
+        case .failure: return "failed"
         case .idle: return ""
         }
     }
 
-    private var trailingColor: Color {
+    private var rightColor: Color {
         switch store.summary {
         case .success: return .green
         case .failure: return .red
@@ -248,6 +303,21 @@ struct StatusGlyph: View {
     }
 }
 
+/// A 1px divider that fades toward its ends — softer than a flat line.
+private struct Hairline: View {
+    enum Axis { case horizontal, vertical }
+    let axis: Axis
+    var body: some View {
+        let grad = LinearGradient(
+            colors: [.white.opacity(0.02), .white.opacity(0.12), .white.opacity(0.02)],
+            startPoint: axis == .horizontal ? .leading : .top,
+            endPoint: axis == .horizontal ? .trailing : .bottom)
+        Rectangle().fill(grad)
+            .frame(width: axis == .vertical ? 1 : nil,
+                   height: axis == .horizontal ? 1 : nil)
+    }
+}
+
 // MARK: - Expanded dashboard (top bar + horizontal sections)
 
 private struct ExpandedDashboard: View {
@@ -262,76 +332,207 @@ private struct ExpandedDashboard: View {
             DashboardTopBar()
                 .frame(height: max(notchHeight, 32))
 
-            Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+            Hairline(axis: .horizontal)
 
             if !approvals.pending.isEmpty {
                 ApprovalBanner()
             }
 
-            Group {
-                if sections.isEmpty {
-                    Text("No widgets on this page — add some in Widgets & Settings.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    HStack(spacing: 0) {
-                        ForEach(Array(sections.enumerated()), id: \.element) { index, kind in
-                            SectionView(kind: kind)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            if index != sections.count - 1 {
-                                Rectangle().fill(.white.opacity(0.08)).frame(width: 1)
-                            }
+            if sections.isEmpty {
+                Text("No widgets on this page — add some in Widgets & Settings.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                SectionsLayout()
+                    .id(pages.current.id)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 6)
+        .animation(.easeInOut(duration: 0.22), value: pages.selectedIndex)
+    }
+}
+
+// MARK: - Resizable / reorderable section row
+
+private struct SectionsLayout: View {
+    @EnvironmentObject var pages: PagesModel
+    @EnvironmentObject var notchState: NotchState
+    @EnvironmentObject var theme: ThemeModel
+
+    @State private var dragIndex: Int? = nil
+    @State private var dragDX: CGFloat = 0
+
+    private var sections: [WidgetKind] { pages.current.widgets }
+    private var pageIdx: Int { pages.selectedIndex }
+
+    var body: some View {
+        GeometryReader { geo in
+            let editing = notchState.editingLayout
+            let n = sections.count
+            let dividerSpace = CGFloat(max(0, n - 1)) * 9
+            let avail = max(1, geo.size.width - dividerSpace)
+            let weights = pages.weights(forPageAt: pageIdx)
+            let sum = max(1, weights.reduce(0, +))
+            let widths = weights.map { CGFloat($0 / sum) * avail }
+
+            HStack(spacing: 0) {
+                ForEach(Array(sections.enumerated()), id: \.element) { index, kind in
+                    let w = index < widths.count ? widths[index] : avail / CGFloat(max(n, 1))
+                    cell(index: index, kind: kind, width: w, editing: editing)
+
+                    if index != n - 1 {
+                        ResizeHandle(editing: editing) { deltaPx in
+                            pages.resize(pageAt: pageIdx, divider: index,
+                                         byFraction: Double(deltaPx / geo.size.width))
                         }
                     }
                 }
             }
-            .id(pages.current.id)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 6)
-        .animation(.easeInOut(duration: 0.2), value: pages.selectedIndex)
+    }
+
+    @ViewBuilder
+    private func cell(index: Int, kind: WidgetKind, width: CGFloat, editing: Bool) -> some View {
+        SectionView(kind: kind)
+            .frame(width: width)
+            .frame(maxHeight: .infinity)
+            .allowsHitTesting(!editing)
+            .opacity(dragIndex != nil && dragIndex != index ? 0.45 : 1)
+            .overlay { if editing { editChrome(kind) } }
+            .offset(x: dragIndex == index ? dragDX : 0)
+            .scaleEffect(dragIndex == index ? 1.04 : 1)
+            .zIndex(dragIndex == index ? 2 : 1)
+            .gesture(editing ? reorderGesture(index: index, width: width) : nil)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: dragIndex)
+    }
+
+    private func reorderGesture(index: Int, width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { v in
+                if dragIndex == nil { dragIndex = index; Haptics.pop() }
+                dragDX = v.translation.width
+            }
+            .onEnded { v in
+                let steps = Int((v.translation.width / max(width, 1)).rounded())
+                let target = max(0, min(sections.count - 1, index + steps))
+                if target != index {
+                    pages.moveWidget(pageAt: pageIdx, from: index, to: target)
+                    Haptics.pop()
+                }
+                dragIndex = nil; dragDX = 0
+            }
+    }
+
+    private func editChrome(_ kind: WidgetKind) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(theme.accent.color.opacity(0.75),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            VStack(spacing: 5) {
+                Image(systemName: "arrow.left.and.right").font(.system(size: 15, weight: .bold))
+                Image(systemName: kind.systemImage).font(.system(size: 12))
+                Text(kind.title).font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.92))
+        }
+        .padding(4)
+        .background(Color.black.opacity(0.35).clipShape(RoundedRectangle(cornerRadius: 9)).padding(4))
+    }
+}
+
+/// The divider between two sections — drag it to resize the columns.
+private struct ResizeHandle: View {
+    let editing: Bool
+    let onResize: (CGFloat) -> Void
+    @State private var last: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            Hairline(axis: .vertical)
+            if editing {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.white.opacity(0.25))
+                    .frame(width: 4, height: 28)
+            }
+        }
+        .frame(width: 9)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { v in
+                    onResize(v.translation.width - last)
+                    last = v.translation.width
+                }
+                .onEnded { _ in last = 0 }
+        )
+        .help("Drag to resize")
     }
 }
 
 private struct DashboardTopBar: View {
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var notchState: NotchState
+    @EnvironmentObject var theme: ThemeModel
 
     var body: some View {
-        HStack(spacing: 8) {
-            // Brand mark only — the page title is omitted (the floating tab row
-            // already shows which page you're on) to keep the bar clean.
-            Image(systemName: "waveform")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white.opacity(0.4))
-
+        HStack(spacing: 6) {
+            // No brand mark / title — the floating tab row already shows the page.
             Spacer()
 
             if store.activities.contains(where: { $0.status != .running }) {
                 Button("Clear") { store.clearFinished() }
                     .buttonStyle(.plain)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .padding(.horizontal, 9).padding(.vertical, 4)
+                    .background(Capsule().fill(.white.opacity(0.08)))
+                    .padding(.trailing, 2)
             }
+            // Edit layout: drag to reorder / resize widgets in the notch.
+            Button { notchState.editingLayout.toggle() } label: {
+                Image(systemName: notchState.editingLayout ? "checkmark" : "rectangle.split.3x1")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(notchState.editingLayout ? theme.accent.color : .white.opacity(0.5))
+                    .hoverChip()
+            }
+            .buttonStyle(.plain)
+            .help(notchState.editingLayout ? "Done editing" : "Edit layout (drag to reorder / resize)")
             // Pin keeps the notch open while you type/read.
             Button { notchState.isPinned.toggle() } label: {
                 Image(systemName: notchState.isPinned ? "pin.fill" : "pin")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(notchState.isPinned ? .white : .white.opacity(0.5))
+                    .foregroundStyle(notchState.isPinned ? theme.accent.color : .white.opacity(0.5))
+                    .hoverChip()
             }
             .buttonStyle(.plain)
             .help(notchState.isPinned ? "Unpin" : "Keep open")
             SettingsLink {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 11, weight: .semibold))
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .hoverChip()
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.5))
         }
-        .foregroundStyle(.white.opacity(0.7))
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
     }
 }
+
+/// Faint circular hover background for the top-bar icon controls.
+private struct HoverChip: ViewModifier {
+    @State private var hover = false
+    func body(content: Content) -> some View {
+        content
+            .frame(width: 26, height: 26)
+            .background(Circle().fill(.white.opacity(hover ? 0.12 : 0)))
+            .contentShape(Circle())
+            .onHover { hover = $0 }
+            .animation(.easeOut(duration: 0.12), value: hover)
+    }
+}
+private extension View { func hoverChip() -> some View { modifier(HoverChip()) } }
 
 /// Amber banner shown when an agent is waiting for an Approve/Deny decision.
 private struct ApprovalBanner: View {
@@ -377,12 +578,15 @@ private struct ApprovalBanner: View {
     }
 }
 
-/// Round tab buttons floating beneath the panel — switch pages (macnotch-style).
+/// Round tab buttons floating beneath the panel — switch pages. A single accent
+/// pill slides between tabs (matchedGeometry) inside a dark glass capsule.
 private struct FloatingTabBar: View {
     @EnvironmentObject var pages: PagesModel
+    @EnvironmentObject var theme: ThemeModel
+    @Namespace private var ns
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 4) {
             ForEach(Array(pages.pages.enumerated()), id: \.element.id) { index, page in
                 let selected = index == pages.selectedIndex
                 Button {
@@ -391,16 +595,29 @@ private struct FloatingTabBar: View {
                 } label: {
                     Image(systemName: page.icon)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(selected ? .black : .white.opacity(0.9))
+                        .foregroundStyle(selected ? .black : .white.opacity(0.85))
                         .frame(width: NotchMetrics.tabButtonSize, height: NotchMetrics.tabButtonSize)
-                        .background(Circle().fill(selected ? Color.white : Color.black))
-                        .overlay(Circle().stroke(.white.opacity(selected ? 0 : 0.14), lineWidth: 1))
+                        .background {
+                            if selected {
+                                Circle().fill(theme.accent.color)
+                                    .matchedGeometryEffect(id: "tabSelector", in: ns)
+                                    .shadow(color: theme.accent.color.opacity(0.5), radius: 6)
+                            }
+                        }
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .help(page.title)
             }
         }
+        .padding(5)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(white: 0.1).opacity(0.9))
+                .overlay(Capsule(style: .continuous).stroke(.white.opacity(0.12), lineWidth: 0.8))
+        )
+        .shadow(color: .black.opacity(0.4), radius: 14, y: 7)
+        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: pages.selectedIndex)
     }
 }
 
@@ -425,6 +642,12 @@ private struct SectionView: View {
         case .camera:   CameraSection()
         case .teleprompter: TeleprompterSection()
         case .calendar: CalendarSection()
+        case .todo:     TodoSection()
+        case .notes:    NotesSection()
+        case .dayProgress: DayProgressSection()
+        case .shortcuts: ShortcutsSection()
+        case .bluetooth: BluetoothSection()
+        case .windowSnap: WindowSnapSection()
         }
     }
 }

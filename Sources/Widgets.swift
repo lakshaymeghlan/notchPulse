@@ -15,22 +15,93 @@ struct AppIcon: View {
     }
 }
 
+/// Resolves and caches an app icon from a bundle id or (fuzzy) app name.
+@MainActor
+enum AppIconCache {
+    private static var cache: [String: NSImage?] = [:]
+
+    static func icon(for identifier: String) -> NSImage? {
+        if let cached = cache[identifier] { return cached }
+        let ws = NSWorkspace.shared
+        var img: NSImage?
+        if identifier.contains("."), let url = ws.urlForApplication(withBundleIdentifier: identifier) {
+            img = ws.icon(forFile: url.path)
+        }
+        if img == nil,
+           let app = ws.runningApplications.first(where: {
+               ($0.localizedName ?? "").localizedCaseInsensitiveContains(identifier)
+           }), let url = app.bundleURL {
+            img = ws.icon(forFile: url.path)
+        }
+        cache[identifier] = img
+        return img
+    }
+}
+
+/// Shows the owning app's real icon when resolvable, else a fallback view.
+struct SourceIcon<Fallback: View>: View {
+    let identifier: String?
+    var side: CGFloat = 16
+    @ViewBuilder var fallback: () -> Fallback
+
+    var body: some View {
+        if let id = identifier, let img = AppIconCache.icon(for: id) {
+            Image(nsImage: img).resizable().interpolation(.high)
+                .frame(width: side, height: side)
+        } else {
+            fallback()
+        }
+    }
+}
+
+/// An on-brand animated audio waveform — the "pulse" in NotchPulse. Reacts while
+/// `active`; settles flat when not.
+struct Waveform: View {
+    var color: Color = .white
+    var bars: Int = 5
+    var active: Bool = true
+    var maxHeight: CGFloat = 13
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: !active)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .center, spacing: 2) {
+                ForEach(0..<bars, id: \.self) { i in
+                    Capsule().fill(color)
+                        .frame(width: 2.5, height: height(i, t))
+                }
+            }
+            .frame(height: maxHeight, alignment: .center)
+        }
+    }
+
+    private func height(_ i: Int, _ t: Double) -> CGFloat {
+        guard active else { return 3 }
+        let phase = Double(i) * 0.7
+        let unit = 0.5 + 0.5 * sin(t * 5.2 + phase)
+        return 3 + (maxHeight - 3) * unit
+    }
+}
+
 /// Section chrome: a small header (icon + caps title) above content, laid out
 /// top-leading to fill its column. Matches the macnotch-style divided panel.
 struct NotchSection<Content: View>: View {
     let title: String
     let systemImage: String
     @ViewBuilder var content: () -> Content
+    @EnvironmentObject private var theme: ThemeModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 5) {
-                Image(systemName: systemImage).font(.system(size: 9, weight: .bold))
+                Image(systemName: systemImage)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(theme.accent.color.opacity(0.85))
                 Text(title.uppercased())
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .tracking(0.6)
+                    .foregroundStyle(.white.opacity(0.4))
             }
-            .foregroundStyle(.white.opacity(0.4))
             content()
             Spacer(minLength: 0)
         }
@@ -82,8 +153,9 @@ struct AgentSection: View {
         NotchSection(title: "Agent", systemImage: "waveform.path.ecg") {
             if !running.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        PulsingDot(color: theme.accent.color)
+                    HStack(spacing: 7) {
+                        Waveform(color: theme.accent.color, bars: 4, maxHeight: 12)
+                            .frame(width: 18)
                         Text(running.count > 1 ? "\(running.count) agents running" : "Running")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(theme.accent.color)
@@ -137,7 +209,9 @@ private struct AgentLane: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 7) {
-            ProgressView().controlSize(.small).scaleEffect(0.55).frame(width: 12, height: 12)
+            SourceIcon(identifier: activity.app, side: 16) {
+                ProgressView().controlSize(.small).scaleEffect(0.55).frame(width: 16, height: 16)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(primary).font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white).lineLimit(1)
@@ -256,6 +330,8 @@ private struct RaceLane: View {
                 Text(hasProgress ? "\(Int(p * 100))%" : "…")
                     .font(.system(size: 9, weight: .medium)).monospacedDigit()
                     .foregroundStyle(.white.opacity(0.6))
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: p)
             }
             GeometryReader { geo in
                 let w = geo.size.width
@@ -407,6 +483,8 @@ struct BatterySection: View {
                     Text(battery.isPresent ? "\(battery.level)%" : "—")
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white).monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: battery.level)
                     Text(stateLabel)
                         .font(.system(size: 11)).foregroundStyle(.white.opacity(0.55))
                 }
@@ -751,6 +829,8 @@ private struct StatRow: View {
                 Spacer()
                 Text("\(Int(value * 100))%").font(.system(size: 11, weight: .bold, design: .rounded))
                     .monospacedDigit().foregroundStyle(.white)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: value)
             }
             Sparkline(values: history, color: color).frame(height: 22)
         }
@@ -1077,6 +1157,240 @@ private struct PrompterControl: View {
 
 // MARK: - Calendar
 
+// MARK: - To-Do
+
+struct TodoSection: View {
+    @EnvironmentObject var todo: TodoModel
+    @EnvironmentObject var theme: ThemeModel
+    @State private var draft = ""
+
+    var body: some View {
+        NotchSection(title: "To-Do", systemImage: "checklist") {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 6) {
+                    TextField("Add a task…", text: $draft)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white)
+                        .onSubmit { todo.add(draft); draft = "" }
+                    Button { todo.add(draft); draft = "" } label: {
+                        Image(systemName: "plus.circle.fill").font(.system(size: 14))
+                            .foregroundStyle(theme.accent.color)
+                    }.buttonStyle(.plain)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(Capsule().fill(.white.opacity(0.07)))
+
+                if todo.items.isEmpty {
+                    Text("Nothing yet — add your first task.")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            ForEach(todo.items) { item in
+                                Button { todo.toggle(item) } label: {
+                                    HStack(spacing: 7) {
+                                        Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(item.done ? theme.accent.color : .white.opacity(0.4))
+                                        Text(item.text)
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(item.done ? .white.opacity(0.4) : .white)
+                                            .strikethrough(item.done)
+                                            .lineLimit(1)
+                                        Spacer(minLength: 0)
+                                    }
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Notes (quick scratchpad)
+
+struct NotesSection: View {
+    @EnvironmentObject var notes: NotesModel
+
+    var body: some View {
+        NotchSection(title: "Notes", systemImage: "note.text") {
+            ZStack(alignment: .topLeading) {
+                if notes.text.isEmpty {
+                    Text("Jot something…")
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.35))
+                        .padding(.top, 2).padding(.leading, 4)
+                }
+                TextEditor(text: $notes.text)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white)
+                    .scrollContentBackground(.hidden)
+                    .background(.clear)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
+// MARK: - Day progress
+
+struct DayProgressSection: View {
+    @EnvironmentObject var theme: ThemeModel
+    @AppStorage("day.startHour") private var startHour = 9
+    @AppStorage("day.endHour") private var endHour = 18
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { ctx in
+            let p = progress(now: ctx.date)
+            NotchSection(title: "Day Progress", systemImage: "sun.max") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(Int(p * 100))%")
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white).monospacedDigit()
+                        .contentTransition(.numericText()).animation(.snappy, value: p)
+                    ProgressView(value: p).progressViewStyle(.linear).tint(theme.accent.color)
+                    Text(subtitle(now: ctx.date, p: p))
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
+                }
+            }
+        }
+    }
+
+    private func progress(now: Date) -> Double {
+        let cal = Calendar.current
+        guard let start = cal.date(bySettingHour: startHour, minute: 0, second: 0, of: now),
+              let end = cal.date(bySettingHour: max(endHour, startHour + 1), minute: 0, second: 0, of: now)
+        else { return 0 }
+        let total = end.timeIntervalSince(start)
+        let done = now.timeIntervalSince(start)
+        return min(max(done / total, 0), 1)
+    }
+    private func subtitle(now: Date, p: Double) -> String {
+        if p <= 0 { return "Workday starts at \(startHour):00" }
+        if p >= 1 { return "Workday complete 🎉" }
+        let cal = Calendar.current
+        guard let end = cal.date(bySettingHour: max(endHour, startHour + 1), minute: 0, second: 0, of: now) else { return "" }
+        let mins = Int(end.timeIntervalSince(now) / 60)
+        return mins >= 60 ? "\(mins / 60)h \(mins % 60)m left today" : "\(mins)m left today"
+    }
+}
+
+// MARK: - Keyboard shortcuts cheat-sheet
+
+struct ShortcutsSection: View {
+    @EnvironmentObject var shortcuts: ShortcutsModel
+
+    var body: some View {
+        NotchSection(title: "Shortcuts", systemImage: "keyboard") {
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(shortcuts.items) { s in
+                        HStack(spacing: 8) {
+                            Text(s.keys)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7).padding(.vertical, 3)
+                                .background(RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.12)))
+                                .fixedSize()
+                            Text(s.label)
+                                .font(.system(size: 11)).foregroundStyle(.white.opacity(0.8))
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Bluetooth
+
+struct BluetoothSection: View {
+    @EnvironmentObject var bluetooth: BluetoothMonitor
+    @EnvironmentObject var theme: ThemeModel
+
+    var body: some View {
+        NotchSection(title: "Bluetooth", systemImage: "wave.3.right") {
+            if bluetooth.devices.isEmpty {
+                Text("No paired devices")
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(bluetooth.devices) { d in
+                            HStack(spacing: 8) {
+                                Image(systemName: d.symbol)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(d.connected ? theme.accent.color : .white.opacity(0.4))
+                                    .frame(width: 18)
+                                Text(d.name)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(d.connected ? .white : .white.opacity(0.5))
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                                if d.connected {
+                                    Circle().fill(theme.accent.color).frame(width: 5, height: 5)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Window snap
+
+struct WindowSnapSection: View {
+    @State private var trusted = WindowSnap.trusted
+
+    private let slots: [(WindowSnap.Slot, String, String)] = [
+        (.left, "rectangle.lefthalf.filled", "Left"),
+        (.right, "rectangle.righthalf.filled", "Right"),
+        (.top, "rectangle.tophalf.filled", "Top"),
+        (.bottom, "rectangle.bottomhalf.filled", "Bottom"),
+        (.full, "rectangle.fill", "Full"),
+        (.center, "rectangle.center.inset.filled", "Center"),
+    ]
+    private let columns = [GridItem(.adaptive(minimum: 52), spacing: 6)]
+
+    var body: some View {
+        NotchSection(title: "Window Snap", systemImage: "macwindow") {
+            if !trusted {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Needs Accessibility access to move windows.")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5)).lineLimit(2)
+                    Button {
+                        WindowSnap.requestAccess()
+                        trusted = WindowSnap.trusted
+                    } label: {
+                        Text("Grant access").font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }.buttonStyle(.plain)
+                }
+            } else {
+                LazyVGrid(columns: columns, spacing: 6) {
+                    ForEach(slots, id: \.2) { slot, icon, label in
+                        Button { WindowSnap.snap(slot) } label: {
+                            VStack(spacing: 3) {
+                                Image(systemName: icon).font(.system(size: 15, weight: .medium))
+                                Text(label).font(.system(size: 8, weight: .medium))
+                            }
+                            .foregroundStyle(.white.opacity(0.85))
+                            .frame(maxWidth: .infinity).frame(height: 40)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.08)))
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// One-tap "Join" for an event that carries a video-call link. Pulses gently
 /// when the meeting is imminent so it's easy to catch from the corner of your eye.
 private struct JoinButton: View {
@@ -1133,23 +1447,25 @@ struct CalendarSection: View {
                     Text("Nothing left today")
                         .font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
                 } else {
-                    VStack(alignment: .leading, spacing: 7) {
-                        ForEach(calendar.events) { ev in
-                            HStack(spacing: 7) {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(ev.color.map { Color(cgColor: $0) } ?? .blue)
-                                    .frame(width: 3, height: 26)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(ev.title)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(.white).lineLimit(1)
-                                    Text(ev.isAllDay ? "All day" : ev.start.formatted(date: .omitted, time: .shortened))
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.white.opacity(0.55))
-                                }
-                                Spacer(minLength: 0)
-                                if let url = ev.joinURL {
-                                    JoinButton(url: url, emphasized: ev.isImminent)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(calendar.events) { ev in
+                                HStack(spacing: 8) {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(ev.color.map { Color(cgColor: $0) } ?? .blue)
+                                        .frame(width: 3, height: 28)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(ev.title)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundStyle(.white).lineLimit(1)
+                                        Text(ev.isAllDay ? "All day" : ev.start.formatted(date: .omitted, time: .shortened))
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.white.opacity(0.55))
+                                    }
+                                    Spacer(minLength: 0)
+                                    if let url = ev.joinURL {
+                                        JoinButton(url: url, emphasized: ev.isImminent)
+                                    }
                                 }
                             }
                         }

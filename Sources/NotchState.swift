@@ -20,6 +20,10 @@ final class NotchState: ObservableObject {
     /// Force-open (e.g. while an agent is waiting for an Approve/Deny decision).
     @Published var forceOpen: Bool = false { didSet { recompute() } }
 
+    /// Layout edit mode — drag to reorder / resize widgets right in the notch.
+    /// Keeps the panel open and makes widget content non-interactive.
+    @Published var editingLayout: Bool = false { didSet { recompute() } }
+
     /// Derived: expanded when hovered, peeking, or pinned.
     @Published private(set) var isExpanded: Bool = false
 
@@ -42,7 +46,7 @@ final class NotchState: ObservableObject {
     }
 
     private func recompute() {
-        let next = isHovering || isPeeking || isPinned || forceOpen
+        let next = isHovering || isPeeking || isPinned || forceOpen || editingLayout
         if next != isExpanded { isExpanded = next }
     }
 }

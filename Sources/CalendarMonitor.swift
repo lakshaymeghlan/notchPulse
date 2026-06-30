@@ -28,6 +28,8 @@ final class CalendarMonitor: ObservableObject {
 
     @Published private(set) var access: Access = .unknown
     @Published private(set) var events: [Item] = []
+    /// Day numbers in the current month that have at least one event (for the grid).
+    @Published private(set) var monthEventDays: Set<Int> = []
 
     private let store = EKEventStore()
     private var timer: Timer?
@@ -81,6 +83,12 @@ final class CalendarMonitor: ObservableObject {
                      color: $0.calendar?.cgColor,
                      joinURL: Self.meetingLink(in: $0))
             }
+
+        // Which days this month have events (for the month grid).
+        if let month = cal.dateInterval(of: .month, for: now) {
+            let pred = store.predicateForEvents(withStart: month.start, end: month.end, calendars: nil)
+            monthEventDays = Set(store.events(matching: pred).map { cal.component(.day, from: $0.startDate) })
+        }
     }
 
     /// Best-effort extraction of a video-call link from an event: its URL field

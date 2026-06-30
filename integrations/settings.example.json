@@ -9,6 +9,16 @@
   "//7": "flow). Drop the approve.sh entry if you only want passive activity display.",
 
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/ABSOLUTE/PATH/TO/integrations/claude-code-hook.sh prompt"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Write|Edit|MultiEdit",

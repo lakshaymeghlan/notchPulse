@@ -50,6 +50,10 @@ final class NotchWindowController {
     private let ask: AskModel
     private let clipboard: ClipboardMonitor
     private let approvals: ApprovalStore
+    private let todo: TodoModel
+    private let notes: NotesModel
+    private let shortcuts: ShortcutsModel
+    private let bluetooth: BluetoothMonitor
     private let pages: PagesModel
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
@@ -75,6 +79,10 @@ final class NotchWindowController {
         ask: AskModel,
         clipboard: ClipboardMonitor,
         approvals: ApprovalStore,
+        todo: TodoModel,
+        notes: NotesModel,
+        shortcuts: ShortcutsModel,
+        bluetooth: BluetoothMonitor,
         pages: PagesModel
     ) {
         self.notchState = notchState
@@ -94,6 +102,10 @@ final class NotchWindowController {
         self.ask = ask
         self.clipboard = clipboard
         self.approvals = approvals
+        self.todo = todo
+        self.notes = notes
+        self.shortcuts = shortcuts
+        self.bluetooth = bluetooth
         self.pages = pages
 
         let panel = NotchPanel(
@@ -138,6 +150,10 @@ final class NotchWindowController {
             .environmentObject(ask)
             .environmentObject(clipboard)
             .environmentObject(approvals)
+            .environmentObject(todo)
+            .environmentObject(notes)
+            .environmentObject(shortcuts)
+            .environmentObject(bluetooth)
             .environmentObject(pages)
         let hosting = NSHostingView(rootView: root)
         hosting.sizingOptions = []
@@ -236,9 +252,9 @@ final class NotchWindowController {
 
     private func evaluatePointer() {
         let inside = screenShapeRect().contains(NSEvent.mouseLocation)
-        // While pinned the panel stays interactive so you can type/scroll even
-        // if the cursor briefly leaves it.
-        let interactive = inside || notchState.isPinned
+        // While pinned or editing the layout, the panel stays interactive so you
+        // can type / drag even if the cursor briefly leaves it.
+        let interactive = inside || notchState.isPinned || notchState.editingLayout
         if panel.ignoresMouseEvents != !interactive {
             panel.ignoresMouseEvents = !interactive
         }

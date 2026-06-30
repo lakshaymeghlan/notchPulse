@@ -7,6 +7,8 @@ struct NotchPage: Identifiable, Equatable, Codable {
     var title: String
     var icon: String
     var widgets: [WidgetKind]
+    /// Relative column widths, parallel to `widgets`. nil ⇒ equal widths.
+    var weights: [Double]? = nil
 }
 
 /// Holds the editable pages and the current selection. Pages persist to
@@ -67,6 +69,50 @@ final class PagesModel: ObservableObject {
     func moveWidgets(onPage pageID: String, from source: IndexSet, to destination: Int) {
         guard let i = pages.firstIndex(where: { $0.id == pageID }) else { return }
         pages[i].widgets.move(fromOffsets: source, toOffset: destination)
+        pages[i].weights = nil   // re-equalize after a settings reorder
+    }
+
+    // MARK: - In-notch layout (reorder + resize)
+
+    /// Normalized column weights for the current page (always sums to widget count
+    /// of entries; equal when unset or stale).
+    func weights(forPageAt i: Int) -> [Double] {
+        let n = pages[i].widgets.count
+        guard n > 0 else { return [] }
+        if let w = pages[i].weights, w.count == n {
+            let sum = w.reduce(0, +)
+            return sum > 0 ? w.map { $0 / sum * Double(n) } : Array(repeating: 1, count: n)
+        }
+        return Array(repeating: 1, count: n)
+    }
+
+    /// Drag a divider: shift width between the two adjacent columns.
+    func resize(pageAt i: Int, divider d: Int, byFraction frac: Double) {
+        var w = weights(forPageAt: i)
+        guard w.indices.contains(d), w.indices.contains(d + 1) else { return }
+        let total = Double(w.count)               // weights sum to count
+        let minW = 0.30                            // never collapse a column too far
+        let delta = frac * total
+        var a = w[d] + delta, b = w[d + 1] - delta
+        if a < minW { b -= (minW - a); a = minW }
+        if b < minW { a -= (minW - b); b = minW }
+        w[d] = a; w[d + 1] = b
+        pages[i].weights = w
+    }
+
+    /// Move a column from one index to another (in-notch drag reorder).
+    func moveWidget(pageAt i: Int, from: Int, to: Int) {
+        var widgets = pages[i].widgets
+        guard widgets.indices.contains(from) else { return }
+        var w = weights(forPageAt: i)
+        let dest = max(0, min(to, widgets.count - 1))
+        guard dest != from else { return }
+        let kind = widgets.remove(at: from)
+        let weight = w.remove(at: from)
+        widgets.insert(kind, at: dest)
+        w.insert(weight, at: dest)
+        pages[i].widgets = widgets
+        pages[i].weights = w
     }
 
     func resetToDefaults() {

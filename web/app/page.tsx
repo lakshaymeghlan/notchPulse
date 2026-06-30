@@ -21,6 +21,63 @@ const FEATURES = [
   { i: "06", k: "Yours", t: "Built to your shape", d: "Compose your own pages, drag widgets into order, pick an accent, switch on frosted glass." },
 ];
 
+// The full catalogue — every widget & capability, grouped.
+const CATALOGUE: { group: string; items: { icon: string; t: string; d: string }[] }[] = [
+  {
+    group: "Agents & AI",
+    items: [
+      { icon: "◎", t: "Live agent lanes", d: "Each Claude Code session as its own lane with live progress." },
+      { icon: "🏁", t: "Agent Race", d: "Run several agents and watch them race to the finish, ranked live." },
+      { icon: "⏱", t: "ETA", d: "A running estimate of how long the current task has left." },
+      { icon: "💲", t: "Tokens & cost", d: "Live token count and running cost across your agents." },
+      { icon: "✅", t: "Approve from the notch", d: "Pause risky commands and tap Approve / Deny right on the notch." },
+      { icon: "✨", t: "Ask Claude", d: "Ask or summarize the clipboard in place, with your own Claude." },
+      { icon: "🎯", t: "Click-to-focus", d: "Jump straight back to the terminal or editor that owns a task." },
+      { icon: "📋", t: "Completion summary", d: "Files touched, +/- diff, and tests passed when an agent finishes." },
+    ],
+  },
+  {
+    group: "Productivity & daily rhythm",
+    items: [
+      { icon: "🕘", t: "Clock", d: "Time and date at a glance." },
+      { icon: "📅", t: "Calendar", d: "A full month grid plus your next events." },
+      { icon: "🎥", t: "One-tap meeting join", d: "Zoom / Meet / Teams links become a Join button that pulses when it's time." },
+      { icon: "✔︎", t: "To-Do", d: "A quick checklist that lives in the notch." },
+      { icon: "📝", t: "Notes", d: "A scratchpad for quick thoughts, always at hand." },
+      { icon: "🍅", t: "Pomodoro", d: "A focus timer with work / break cycles and a quiet chime." },
+      { icon: "🌅", t: "Day Progress", d: "How much of your workday has elapsed." },
+      { icon: "⌨️", t: "Shortcuts", d: "An editable keyboard-shortcut cheat sheet." },
+      { icon: "📎", t: "Clipboard history", d: "Recent copied text — click to re-copy." },
+    ],
+  },
+  {
+    group: "Notch & system",
+    items: [
+      { icon: "🔋", t: "Battery", d: "Charge level, charging state, and a ring gauge." },
+      { icon: "📈", t: "System Monitor", d: "Live CPU and memory traces." },
+      { icon: "🔵", t: "Bluetooth", d: "Your paired devices and what's connected." },
+      { icon: "▦", t: "Window Snap", d: "Snap the focused window to halves, full, or center." },
+      { icon: "🪟", t: "Open windows", d: "Jump to any window across every Space and display." },
+      { icon: "🗂", t: "Open apps", d: "Everything you have open — click to focus." },
+      { icon: "🎵", t: "Now playing", d: "Album art, scrubber, and a live visualizer." },
+      { icon: "🎬", t: "Teleprompter", d: "Read a script straight down the lens." },
+      { icon: "📷", t: "Camera mirror", d: "A quick live camera preview." },
+      { icon: "🪣", t: "Shelf", d: "Drag files onto the notch to stash them." },
+    ],
+  },
+  {
+    group: "Make it yours",
+    items: [
+      { icon: "🎨", t: "Pages & widgets", d: "Compose your own pages and drag widgets into order." },
+      { icon: "🌈", t: "Accent colors", d: "Tint the whole notch in your color." },
+      { icon: "🧊", t: "Frosted glass", d: "Switch the expanded panel to translucent glass." },
+      { icon: "🔔", t: "Finish sound & speech", d: "Hear a chime — or have it spoken — when an agent lands." },
+      { icon: "⌨︎", t: "Global shortcut", d: "Open settings from anywhere with ⌥⌘N." },
+      { icon: "🔌", t: "Open event API", d: "Any tool — CI, scripts, editors — can POST to show a live activity." },
+    ],
+  },
+];
+
 export default function Page() {
   return (
     <>
@@ -136,6 +193,40 @@ export default function Page() {
                 ))}
               </div>
             </Reveal>
+
+            {/* Full catalogue — every widget & capability */}
+            <Reveal delay={0.05}>
+              <div className="mb-8 mt-24 flex items-end justify-between gap-6">
+                <h2 className="max-w-[20ch] text-balance font-display text-[clamp(26px,4vw,46px)] font-semibold leading-[1.04] tracking-tight">
+                  Everything in the box.
+                </h2>
+                <span className="idx hidden whitespace-nowrap pb-2 sm:block">
+                  {CATALOGUE.reduce((n, g) => n + g.items.length, 0)} features
+                </span>
+              </div>
+            </Reveal>
+            <div className="flex flex-col gap-12">
+              {CATALOGUE.map((group) => (
+                <Reveal key={group.group} delay={0.04}>
+                  <div>
+                    <div className="idx mb-4">{group.group}</div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.items.map((it) => (
+                        <div key={it.t} className="rounded-2xl glass p-5">
+                          <div className="flex items-center gap-3">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-ink/[.05] text-[17px]">
+                              {it.icon}
+                            </span>
+                            <h3 className="font-display text-[17px] font-medium tracking-tight">{it.t}</h3>
+                          </div>
+                          <p className="mt-3 text-[14px] leading-relaxed text-ink2">{it.d}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
 

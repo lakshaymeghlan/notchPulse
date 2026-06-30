@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let ask = AskModel()
     let clipboard = ClipboardMonitor()
     let approvals = ApprovalStore()
+    let todo = TodoModel()
+    let notes = NotesModel()
+    let shortcuts = ShortcutsModel()
+    let bluetooth = BluetoothMonitor()
     let pages = PagesModel()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
@@ -47,6 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ask: ask,
             clipboard: clipboard,
             approvals: approvals,
+            todo: todo,
+            notes: notes,
+            shortcuts: shortcuts,
+            bluetooth: bluetooth,
             pages: pages
         )
         controller.show()
