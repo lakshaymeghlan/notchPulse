@@ -297,9 +297,13 @@ export default function Page() {
                 <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
                   <MagneticButton
                     href="mailto:lakshaymeghlan@gmail.com?subject=NotchPulse%20—%20feedback"
-                    className="px-6 py-3.5 text-[15px]"
+                    className="inline-flex items-center gap-2 px-6 py-3.5 text-[15px]"
                   >
-                    ✉ Send feedback
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+                      <path d="M3 6l9 6 9-6" />
+                    </svg>
+                    Send feedback
                   </MagneticButton>
                   <a
                     href="mailto:lakshaymeghlan@gmail.com"
