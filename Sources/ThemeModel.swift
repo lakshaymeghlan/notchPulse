@@ -56,12 +56,12 @@ enum GlassMode: String, CaseIterable, Identifiable {
 
 /// Tunables for the faux-glass surface (Phase 1). Tweak here.
 enum GlassStyle {
-    static let topTint = Color(white: 0.18)      // charcoal
-    static let bottomTint = Color(white: 0.06)   // near-black
-    static let rimTop = Color.white.opacity(0.14)
-    static let rimBottom = Color.white.opacity(0.02)
-    static let hairline = Color.white.opacity(0.05)
-    static let grainOpacity: Double = 0.035
+    static let topTint = Color(white: 0.075)     // very dark charcoal
+    static let bottomTint = Color.black          // pure black
+    static let rimTop = Color.white.opacity(0.12)
+    static let rimBottom = Color.white.opacity(0.015)
+    static let hairline = Color.white.opacity(0.04)
+    static let grainOpacity: Double = 0.03
 }
 
 /// A small, cached grayscale-noise tile used to give the faux glass a subtle

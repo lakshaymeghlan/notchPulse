@@ -115,7 +115,9 @@ final class NotchWindowController {
             defer: false
         )
         panel.isFloatingPanel = true
-        panel.level = .statusBar
+        // Shielding-window level floats above other apps' full-screen spaces, so
+        // the notch stays visible when you switch to a full-screen app's desktop.
+        panel.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -223,10 +225,23 @@ final class NotchWindowController {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+        // Keep the panel present across Space switches / window drags so it
+        // doesn't blink out and reappear.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(spaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func spaceChanged() {
+        panel.orderFrontRegardless()
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         for m in pointerMonitors { NSEvent.removeMonitor(m) }
     }
 
@@ -238,14 +253,49 @@ final class NotchWindowController {
     private func installPointerMonitors() {
         let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
         let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.evaluatePointer() }
+            MainActor.assumeIsolated {
+                self?.maybeFollowCursor()
+                self?.evaluatePointer()
+            }
         })
         if let global { pointerMonitors.append(global) }
         let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.evaluatePointer() }
+            MainActor.assumeIsolated {
+                self?.maybeFollowCursor()
+                self?.evaluatePointer()
+            }
             return event
         })
         if let local { pointerMonitors.append(local) }
+    }
+
+    /// Stable identifier for a screen (NSScreen instances aren't identity-stable).
+    private func displayID(_ screen: NSScreen?) -> CGDirectDisplayID {
+        (screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+    }
+
+    /// Which display the cursor is currently on.
+    private func screenUnderCursor() -> NSScreen? {
+        let p = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(p, $0.frame, false) }
+    }
+
+    private var followActiveDisplay: Bool {
+        UserDefaults.standard.object(forKey: "followActiveDisplay") == nil
+            ? true : UserDefaults.standard.bool(forKey: "followActiveDisplay")
+    }
+
+    /// Move the notch to the display the cursor just entered (only when it
+    /// actually changes screens, so it never thrashes on ordinary movement).
+    private func maybeFollowCursor() {
+        guard followActiveDisplay, let s = screenUnderCursor() else { return }
+        let id = displayID(s)
+        let currentID = activeScreenID ?? displayID(targetScreen)
+        guard id != 0, id != currentID else { return }
+        NSLog("[NotchPulse] follow → display \(id) (was \(currentID))")
+        activeScreenID = id
+        positionRetries = 0
+        ensurePositioned()
     }
 
     /// The current notch shape rect in screen coordinates (bottom-left origin).
@@ -276,30 +326,50 @@ final class NotchWindowController {
     }
 
     @objc private func screenParametersChanged() {
+        // Drop a stale active screen (e.g. a display was unplugged).
+        if let id = activeScreenID, !NSScreen.screens.contains(where: { displayID($0) == id }) {
+            activeScreenID = nil
+        }
         positionRetries = 0
         ensurePositioned()
     }
 
-    /// Pin the fixed window to the top-center of the main display and resolve
-    /// the notch dimensions. Retries briefly because the display subsystem can
-    /// report a missing notch / bogus bounds right after launch.
-    private func ensurePositioned() {
-        if let screen = targetScreen {
-            anchorNotch = notchSize(on: screen)
-            notchState.notchSize = anchorNotch
+    /// The display we should currently sit on: the one the cursor last moved to
+    /// (if "follow active display" is on), else the built-in notched screen.
+    private var positioningScreen: NSScreen? {
+        if let id = activeScreenID, let s = NSScreen.screens.first(where: { displayID($0) == id }) {
+            return s
         }
+        return targetScreen ?? NSScreen.main
+    }
 
-        let cg = CGDisplayBounds(CGMainDisplayID())
-        if cg.width > 100 {
-            let x = (cg.width - NotchMetrics.windowWidth) / 2
-            let y = cg.height - NotchMetrics.windowHeight   // flush to the top
-            panel.setFrame(NSRect(x: x.rounded(), y: y.rounded(),
-                                  width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight),
-                           display: true)
+    /// Pin the fixed window to the top-center of the active display and resolve
+    /// the notch dimensions (zero on a non-notched external → floating pill).
+    /// Retries briefly because the display subsystem can report bogus bounds
+    /// right after launch.
+    private func ensurePositioned() {
+        guard let screen = positioningScreen else { return }
+        anchorNotch = notchSize(on: screen)
+        notchState.notchSize = anchorNotch
+
+        let f = screen.frame   // global Cocoa coords (bottom-left origin)
+        if f.width > 100 {
+            let x = f.midX - NotchMetrics.windowWidth / 2
+            let y = f.maxY - NotchMetrics.windowHeight   // flush to that screen's top
+            let target = NSRect(x: x.rounded(), y: y.rounded(),
+                                width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight)
+            // Only move when it actually changed — avoids a re-frame flicker.
+            if panel.frame != target { panel.setFrame(target, display: false) }
+            // Always re-assert visibility so it never blinks out during a
+            // window drag / display or Space change.
+            panel.orderFrontRegardless()
         }
         evaluatePointer()
 
-        let sane = cg.width > 100 && anchorNotch.height > 0
+        // On the built-in we wait until the notch is actually measured; on an
+        // external display there's no notch to wait for.
+        let notched = screen.safeAreaInsets.top > 0
+        let sane = f.width > 100 && (!notched || anchorNotch.height > 0)
         if !sane && positionRetries < 24 {
             positionRetries += 1
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
@@ -340,6 +410,8 @@ final class NotchWindowController {
     // MARK: - Geometry
 
     private var anchorNotch: CGSize = .zero
+    /// The display the notch is following the cursor onto (nil = built-in notch).
+    private var activeScreenID: CGDirectDisplayID?
 
     private var targetScreen: NSScreen? {
         NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })

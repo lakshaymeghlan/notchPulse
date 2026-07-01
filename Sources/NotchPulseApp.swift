@@ -66,6 +66,7 @@ struct AppearanceSettings: View {
     @AppStorage("finishSound") private var finishSound = true
     @AppStorage("finishSpeech") private var finishSpeech = false
     @AppStorage("liveEars") private var liveEars = true
+    @AppStorage("followActiveDisplay") private var followActiveDisplay = true
     @AppStorage("glassMode") private var glassModeRaw = GlassMode.frosted.rawValue
 
     var body: some View {
@@ -76,6 +77,15 @@ struct AppearanceSettings: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Live activity beside the notch")
                     Text("Show agent status in the collapsed notch. Turn off to keep it flush so it never covers menu-bar icons.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Toggle(isOn: $followActiveDisplay) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Follow active display")
+                    Text("Move the notch to whichever screen your cursor is on. On external displays it shows a floating pill at the top center.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

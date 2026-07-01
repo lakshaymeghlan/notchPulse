@@ -190,7 +190,12 @@ struct NotchView: View {
     /// back to flat here) — clipped to the notch shape with a glass edge.
     @ViewBuilder
     private func surfaceBackground(_ shape: NotchShape) -> some View {
-        if useGlass {
+        // When collapsed with nothing to show (idle, or the live-activity ears
+        // are off), draw NOTHING — painting #000 over the physical notch reads as
+        // a faint second notch on an LCD. Let the real notch show through.
+        if !expanded && !(active && NotchLayout.showsEars) {
+            Color.clear
+        } else if useGlass {
             switch glassMode {
             case .frosted:
                 fauxGlass(shape)
