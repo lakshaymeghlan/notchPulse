@@ -281,6 +281,38 @@ export default function Page() {
           </div>
         </section>
 
+        {/* FEEDBACK — shape the roadmap */}
+        <section id="feedback" className="px-6 py-24">
+          <Reveal className="mx-auto max-w-content">
+            <div className="rounded-[28px] glass px-8 py-14">
+              <div className="mx-auto max-w-[640px] text-center">
+                <span className="idx">Shape the roadmap</span>
+                <h2 className="mt-3 text-balance font-display text-[clamp(26px,4.2vw,46px)] font-semibold leading-[1.02] tracking-tight">
+                  Got an idea, a bug, or a request?
+                </h2>
+                <p className="mx-auto mt-5 max-w-[52ch] text-[16px] leading-relaxed text-ink2">
+                  NotchPulse is built around your feedback. Email me a question, a recommendation,
+                  or a feature you want next — I read every message and future updates follow what you send.
+                </p>
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+                  <MagneticButton
+                    href="mailto:lakshaymeghlan@gmail.com?subject=NotchPulse%20—%20feedback"
+                    className="px-6 py-3.5 text-[15px]"
+                  >
+                    ✉ Send feedback
+                  </MagneticButton>
+                  <a
+                    href="mailto:lakshaymeghlan@gmail.com"
+                    className="font-mono text-[14px] text-ink underline decoration-line2 decoration-1 underline-offset-[6px] hover:decoration-ink"
+                  >
+                    lakshaymeghlan@gmail.com
+                  </a>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+
         {/* CLOSER */}
         <section className="px-6 py-24">
           <Reveal className="mx-auto max-w-content">
@@ -304,6 +336,7 @@ export default function Page() {
             <div className="text-[13.5px] text-ink2">
               Your notch, alive · macOS 14+ · free ·{" "}
               <a href="/changelog" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">changelog</a> ·{" "}
+              <a href="#feedback" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">feedback</a> ·{" "}
               <a href="#support" className="underline decoration-line2 underline-offset-4 hover:decoration-ink">fuel the dev ⚡</a>
             </div>
             <div className="font-mono text-[12px] text-faint">© 2026 NotchPulse</div>

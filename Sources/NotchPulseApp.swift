@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @main
 struct NotchPulseApp: App {
@@ -54,8 +55,67 @@ struct SettingsView: View {
                 .tabItem { Label("Appearance", systemImage: "paintpalette") }
             TeleprompterSettings()
                 .tabItem { Label("Teleprompter", systemImage: "text.alignleft") }
+            SupportSettings()
+                .tabItem { Label("Support", systemImage: "envelope") }
         }
         .frame(width: 480, height: 560)
+    }
+}
+
+/// Support & feedback — email the maker directly.
+struct SupportSettings: View {
+    private let email = "lakshaymeghlan@gmail.com"
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Support & feedback").font(.headline)
+            Text("Got a question, hit a bug, or have an idea for a future update? Email me — I read every message and shape the roadmap around what you send.")
+                .font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Image(systemName: "envelope.fill").foregroundStyle(.tint)
+                Text(email)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+
+            HStack(spacing: 10) {
+                Button { sendMail() } label: {
+                    Label("Email me", systemImage: "paperplane.fill")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button { copyEmail() } label: {
+                    Label(copied ? "Copied!" : "Copy email", systemImage: copied ? "checkmark" : "doc.on.doc")
+                }
+            }
+
+            Text("Feature requests, recommendations, praise, or complaints — all welcome. Future updates are built around your feedback.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
+        }
+        .padding(20)
+    }
+
+    private func sendMail() {
+        let subject = "NotchPulse — feedback"
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "mailto:\(email)?subject=\(subject)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func copyEmail() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(email, forType: .string)
+        copied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { copied = false }
     }
 }
 
