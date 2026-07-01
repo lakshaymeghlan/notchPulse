@@ -252,7 +252,6 @@ struct NotchView: View {
 
 private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
-    @EnvironmentObject var theme: ThemeModel
     let notchWidth: CGFloat
     let notchHeight: CGFloat
 
@@ -279,9 +278,9 @@ private struct CompactContent: View {
 
     private var dotColor: Color {
         switch store.summary {
-        case .success: return .green
-        case .failure: return .red
-        default: return theme.accent.color   // running → your accent
+        case .success: return .green                                  // done → green
+        case .failure: return .red                                    // failed → red
+        default: return Color(red: 1, green: 0.36, blue: 0.45)        // running → brand red
         }
     }
 }
