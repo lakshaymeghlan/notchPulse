@@ -8,8 +8,10 @@ struct NotchPulseApp: App {
     var body: some Scene {
         // Menu-bar-only presence. The notch UI itself lives in a borderless
         // NSPanel managed by AppDelegate; this extra is just the control surface.
-        MenuBarExtra("NotchPulse", systemImage: "waveform") {
+        MenuBarExtra {
             MenuBarContent(store: appDelegate.store)
+        } label: {
+            Image(nsImage: NotchMenuBarIcon.image)
         }
 
         Settings {
@@ -22,6 +24,37 @@ struct NotchPulseApp: App {
                 .environmentObject(appDelegate.pomodoro)
         }
     }
+}
+
+/// Menu-bar icon: the notch silhouette (flat top, rounded bottom) with a small
+/// pulse dot cut out of it. Template image so it adapts to light/dark menu bars.
+enum NotchMenuBarIcon {
+    static let image: NSImage = {
+        let size = NSSize(width: 22, height: 15)
+        let img = NSImage(size: size, flipped: false) { rect in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            let w = rect.width, h = rect.height, r: CGFloat = 4.5
+            // Notch silhouette: flat top edge, rounded bottom corners.
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: 0, y: h))
+            p.addLine(to: CGPoint(x: 0, y: r))
+            p.addQuadCurve(to: CGPoint(x: r, y: 0), control: CGPoint(x: 0, y: 0))
+            p.addLine(to: CGPoint(x: w - r, y: 0))
+            p.addQuadCurve(to: CGPoint(x: w, y: r), control: CGPoint(x: w, y: 0))
+            p.addLine(to: CGPoint(x: w, y: h))
+            p.closeSubpath()
+            ctx.addPath(p)
+            ctx.setFillColor(NSColor.black.cgColor)
+            ctx.fillPath()
+            // Punch out a small dot (reads as the camera / pulse).
+            ctx.setBlendMode(.clear)
+            let d: CGFloat = 4
+            ctx.fillEllipse(in: CGRect(x: (w - d) / 2, y: h - d - 2.5, width: d, height: d))
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }()
 }
 
 /// Contents of the menu-bar dropdown.

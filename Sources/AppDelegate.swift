@@ -65,9 +65,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.server = server
 
         // Global shortcut (⌥⌘N) to open settings from any app.
-        GlobalHotKey.shared.register {
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        GlobalHotKey.shared.register { [weak self] in
+            self?.openSettings()
+        }
+    }
+
+    /// Open Settings and bring it to the very front (an .accessory app's
+    /// Settings window otherwise opens behind other apps / unfocused).
+    func openSettings() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        // Next runloop: the Settings window exists — front + center it.
+        DispatchQueue.main.async {
+            guard let w = NSApp.windows.first(where: { $0.styleMask.contains(.titled) }) else { return }
+            w.center()
+            w.makeKeyAndOrderFront(nil)
+            w.orderFrontRegardless()
         }
     }
 

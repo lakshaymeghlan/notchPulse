@@ -67,9 +67,9 @@ enum NotchLayout {
     /// Dynamic collapsed width: two EQUAL halves (sized to the wider label) on
     /// each side of the camera, so the pill is symmetric and the labels read as
     /// centered/balanced — not shoved to one side.
-    static func collapsedWidth(notchWidth: CGFloat, active: Bool, left: String, right: String) -> CGFloat {
+    static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
         guard active, showsEars else { return notchWidth }
-        return notchWidth + 2 * LiveActivity.halfWidth(left: left, right: right)
+        return notchWidth + 90   // room for a small pulse dot beside the notch
     }
 }
 
@@ -131,8 +131,7 @@ struct NotchView: View {
     var body: some View {
         let notchW = notchState.notchSize.width  > 0 ? notchState.notchSize.width  : NotchMetrics.fallbackNotchWidth
         let notchH = notchState.notchSize.height > 0 ? notchState.notchSize.height : NotchMetrics.fallbackNotchHeight
-        let lbl = LiveActivity.labels(summary: store.summary, source: latestSource)
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active, left: lbl.left, right: lbl.right)
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
         let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
         let shape = NotchShape(topCornerRadius: 12, bottomCornerRadius: expanded ? 30 : (active ? 16 : 10))
@@ -190,10 +189,11 @@ struct NotchView: View {
     /// back to flat here) — clipped to the notch shape with a glass edge.
     @ViewBuilder
     private func surfaceBackground(_ shape: NotchShape) -> some View {
-        // When collapsed with nothing to show (idle, or the live-activity ears
-        // are off), draw NOTHING — painting #000 over the physical notch reads as
-        // a faint second notch on an LCD. Let the real notch show through.
-        if !expanded && !(active && NotchLayout.showsEars) {
+        // Collapsed draws NO box at all (idle OR running) — painting #000 over
+        // the notch reads as a faint second notch on an LCD. The running state is
+        // shown by a small pulse dot (CompactContent) that floats over the menu
+        // bar with no background. Only the expanded panel draws a surface.
+        if !expanded {
             Color.clear
         } else if useGlass {
             switch glassMode {
@@ -252,65 +252,53 @@ struct NotchView: View {
 
 private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var theme: ThemeModel
     let notchWidth: CGFloat
     let notchHeight: CGFloat
 
     var body: some View {
-        switch store.summary {
-        case _ where !NotchLayout.showsEars:
-            // Live activity hidden (Settings → Appearance) — flush black notch,
-            // never render text here or it would clip in the bare-notch width.
-            Color.clear
-        case .idle:
-            Color.clear
-        default:
-            // Two equal halves with the camera gap centered between them. Each
-            // label is centered in its half → balanced, centered, symmetric.
+        if store.summary == .idle || !NotchLayout.showsEars {
+            Color.clear   // nothing at rest — physical notch only
+        } else {
+            // A single pulse dot just right of the camera. No background box, so
+            // it never looks like a second notch. Full details show on hover.
             HStack(spacing: 0) {
-                Text(leftLabel)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: LiveActivity.maxLabel)   // cap → ellipsis
-                    .frame(maxWidth: .infinity)               // center in its half
-
-                Color.clear.frame(width: notchWidth)
-
-                Text(rightLabel)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(rightColor)
-                    .lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: LiveActivity.maxLabel)
-                    .frame(maxWidth: .infinity)
+                Color.clear.frame(maxWidth: .infinity)   // left ear (keeps notch centered)
+                Color.clear.frame(width: notchWidth)      // camera gap
+                HStack(spacing: 0) {
+                    PulseDot(color: dotColor)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.leading, 8)
             }
-            // Align with the menu-bar text line (top of the notch).
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, max(3, (notchHeight - 15) / 2))
+            .padding(.top, max(4, (notchHeight - 9) / 2))
         }
     }
 
-    private var latest: Activity? { store.activities.first(where: { $0.status == .running }) ?? store.activities.first }
-
-    // Use the SAME labels the pill width is measured from, so the rendered text
-    // always fits exactly (no clipping / truncation).
-    private var leftLabel: String { LiveActivity.labels(summary: store.summary, source: latest?.source).left }
-
-    /// Right ear — the status word.
-    private var rightLabel: String {
-        switch store.summary {
-        case .running: return "running"
-        case .success: return "done"
-        case .failure: return "failed"
-        case .idle: return ""
-        }
-    }
-
-    private var rightColor: Color {
+    private var dotColor: Color {
         switch store.summary {
         case .success: return .green
         case .failure: return .red
-        default: return .white.opacity(0.7)
+        default: return theme.accent.color   // running → your accent
         }
+    }
+}
+
+/// A small pulsing dot with a soft glow — the collapsed "running" indicator.
+private struct PulseDot: View {
+    let color: Color
+    @State private var on = false
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .shadow(color: color.opacity(0.9), radius: on ? 5 : 1.5)
+            .scaleEffect(on ? 1 : 0.68)
+            .opacity(on ? 1 : 0.55)
+            .animation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true), value: on)
+            .onAppear { on = true }
     }
 }
 

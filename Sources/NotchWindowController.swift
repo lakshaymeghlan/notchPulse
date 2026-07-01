@@ -434,9 +434,7 @@ final class NotchWindowController {
         let notchW = hasNotch ? anchorNotch.width : NotchMetrics.fallbackNotchWidth
         let collapsedH = hasNotch ? anchorNotch.height : NotchMetrics.fallbackNotchHeight
         let active = store.summary != .idle
-        let latestSource = (store.activities.first(where: { $0.status == .running }) ?? store.activities.first)?.source
-        let lbl = LiveActivity.labels(summary: store.summary, source: latestSource)
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active, left: lbl.left, right: lbl.right)
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
 
         // When collapsed, pad the hit zone (wider + taller) so the cursor
         // reliably catches it on the first approach.
