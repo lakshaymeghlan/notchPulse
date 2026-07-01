@@ -1,9 +1,9 @@
 // NotchPulse is free. Tips/support go through Razorpay (India + international).
-// ▼ Replace with your real Razorpay link:
-//   - razorpay.me page (pay-what-you-want):  https://razorpay.me/@yourhandle
-//   - or a Payment Link:                     https://rzp.io/l/xxxxx
-//   Enable "International Payments" in Razorpay to accept foreign cards.
-export const SUPPORT_URL = "https://razorpay.me/@notchpulse";
+// The link is public (not a secret), so it lives here as the default and can be
+// overridden per-deploy with NEXT_PUBLIC_SUPPORT_URL. Enable "International
+// Payments" in Razorpay to accept foreign cards.
+export const SUPPORT_URL =
+  process.env.NEXT_PUBLIC_SUPPORT_URL ?? "https://razorpay.me/@lakshaymeghlan";
 export const COFFEE_URL = SUPPORT_URL; // alias used by nav/hero/footer/⌘K
 export const DOWNLOAD_URL = "/downloads/NotchPulse.zip";
 
