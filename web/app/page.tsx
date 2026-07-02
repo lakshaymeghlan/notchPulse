@@ -111,7 +111,15 @@ export default function Page() {
                     Fuel the dev ⚡
                   </a>
                 </div>
-                <div className="mt-4 font-mono text-[12.5px] text-faint">macOS 14+ · ~6&nbsp;MB · no account · open it from the menu bar</div>
+                <div className="mt-4 font-mono text-[12.5px] text-faint">macOS 14+ · ~3&nbsp;MB · no account · lives in your menu bar</div>
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-line2 bg-ink/[.03] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink2 max-w-[46ch]">
+                  <span aria-hidden="true">🔓</span>
+                  <span>
+                    <b className="text-ink">First launch:</b> macOS will say it “can’t verify” the app (it isn’t Apple-notarized yet).
+                    Open <b className="text-ink">System Settings → Privacy&nbsp;&&nbsp;Security</b>, scroll down, and click{" "}
+                    <b className="text-ink">“Open Anyway.”</b> One time only. <a href="#faq" className="underline decoration-line2 underline-offset-2 hover:decoration-ink">More&nbsp;help →</a>
+                  </span>
+                </div>
               </Reveal>
             </div>
 
@@ -241,7 +249,7 @@ export default function Page() {
             </Reveal>
             <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
               {[
-                { n: "1", t: "Download & open", d: "A tiny menu-bar app — no Dock icon, no account. Right-click → Open the first time." },
+                { n: "1", t: "Download & open", d: "A tiny menu-bar app — no Dock icon, no account. First launch: System Settings → Privacy & Security → Open Anyway (it isn't Apple-notarized yet)." },
                 { n: "2", t: "Connect Claude Code", d: "Add one hook line. Every session you run lights up the notch, automatically." },
                 { n: "3", t: "Wire up anything", d: "Builds, CI, scripts — anything that can POST to a local port shows as a live activity." },
               ].map((s) => (
