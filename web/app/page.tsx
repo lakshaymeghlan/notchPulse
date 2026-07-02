@@ -112,13 +112,33 @@ export default function Page() {
                   </a>
                 </div>
                 <div className="mt-4 font-mono text-[12.5px] text-faint">macOS 14+ · ~3&nbsp;MB · no account · lives in your menu bar</div>
-                <div className="mt-3 flex items-start gap-2 rounded-xl border border-line2 bg-ink/[.03] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink2 max-w-[46ch]">
-                  <span aria-hidden="true">🔓</span>
-                  <span>
-                    <b className="text-ink">First launch:</b> macOS will say it “can’t verify” the app (it isn’t Apple-notarized yet).
-                    Open <b className="text-ink">System Settings → Privacy&nbsp;&&nbsp;Security</b>, scroll down, and click{" "}
-                    <b className="text-ink">“Open Anyway.”</b> One time only. <a href="#faq" className="underline decoration-line2 underline-offset-2 hover:decoration-ink">More&nbsp;help →</a>
+                <div className="mt-5 flex items-start gap-3.5 rounded-2xl liquid-glass p-4 max-w-[50ch]">
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+                    style={{ background: "color-mix(in srgb, var(--live) 14%, transparent)" }}
+                    aria-hidden="true"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--live)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="4" y="10.5" width="16" height="10" rx="2.5" />
+                      <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+                    </svg>
                   </span>
+                  <div className="min-w-0">
+                    <div className="idx" style={{ color: "var(--live)" }}>First launch</div>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-ink2">
+                      macOS blocks apps that aren’t Apple-notarized yet. Approve it once here:
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 font-mono text-[11.5px]">
+                      <span className="rounded-md border border-line2 bg-ink/[.04] px-2 py-1 text-ink">System&nbsp;Settings</span>
+                      <span className="text-faint">›</span>
+                      <span className="rounded-md border border-line2 bg-ink/[.04] px-2 py-1 text-ink">Privacy&nbsp;&&nbsp;Security</span>
+                      <span className="text-faint">›</span>
+                      <span className="rounded-md border border-transparent px-2 py-1 font-semibold text-white" style={{ background: "var(--live)" }}>Open&nbsp;Anyway</span>
+                    </div>
+                    <p className="mt-2.5 text-[12px] text-faint">
+                      One time only. <a href="#faq" className="text-ink underline decoration-line2 underline-offset-2 hover:decoration-ink">Trouble? See the FAQ →</a>
+                    </p>
+                  </div>
                 </div>
               </Reveal>
             </div>
