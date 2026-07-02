@@ -17,6 +17,13 @@ APP="$(xcodebuild -project "$ROOT/NotchPulse.xcodeproj" -scheme NotchPulse \
   -configuration Release -showBuildSettings 2>/dev/null \
   | awk -F' = ' '/ CODESIGNING_FOLDER_PATH /{print $2}')"
 
+# Ad-hoc sign so a downloaded build reads as "unidentified developer"
+# (right-click → Open works) instead of the scary "damaged — move to Bin"
+# that fully-unsigned apps trigger under quarantine. Proper Developer ID
+# signing + notarization is still needed to open with a plain double-click.
+echo "▶ Ad-hoc signing…"
+codesign --force --deep --sign - "$APP" || echo "  (codesign skipped)"
+
 OUT="$ROOT/web/public/downloads"
 mkdir -p "$OUT"
 echo "▶ Zipping $APP"

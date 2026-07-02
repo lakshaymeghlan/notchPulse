@@ -7,7 +7,7 @@ const ITEMS = [
   { q: "How does it know my Claude Code is running?", a: "NotchPulse runs a tiny local server. A one-line hook in Claude Code posts events to it as your session works — start, progress, finish — and the notch reflects them live. Anything else that can POST locally (builds, CI, scripts) works too." },
   { q: "Does it send my data anywhere?", a: "No. Everything stays on your Mac. The server only listens on localhost (127.0.0.1) and there's no analytics or account." },
   { q: "What about Macs without a notch?", a: "It still works — on a non-notched Mac the surface sits as a floating pill at the top-center of your screen." },
-  { q: "The download says it's from an unidentified developer.", a: "Until notarization ships, right-click the app and choose Open the first time (System Settings → Privacy & Security will also offer an Open Anyway button). After that it launches normally." },
+  { q: "macOS says the app is “damaged” or from an “unidentified developer”.", a: "NotchPulse isn’t notarized by Apple yet, so macOS quarantines downloads. Unzip it, then EITHER right-click the app → Open → Open, OR run this once in Terminal: xattr -dr com.apple.quarantine /path/to/NotchPulse.app  — then open it normally. (It’s safe and fully open-source; the warning just means it isn’t signed with a paid Apple certificate yet.)" },
   { q: "Which Macs are supported?", a: "macOS 14 (Sonoma) and later, on both Apple Silicon and Intel. The app is about 6 MB." },
 ];
 
