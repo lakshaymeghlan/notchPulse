@@ -116,6 +116,9 @@ struct NotchView: View {
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var theme: ThemeModel
+    /// Shared namespace so the Pulse mascot flies between its collapsed home (the
+    /// notch ear) and its expanded home (the dashboard bar) as the panel opens.
+    @Namespace private var mascotNS
     // Observed only so the surface re-lays-out when the "ears" toggle changes.
     @AppStorage("liveEars") private var liveEars = true
     @AppStorage("glassMode") private var glassModeRaw = GlassMode.frosted.rawValue
@@ -149,10 +152,10 @@ struct NotchView: View {
                         // burned CPU at idle. Now collapsed = static text only.
                         ZStack {
                             if expanded {
-                                ExpandedDashboard(notchHeight: notchH)
+                                ExpandedDashboard(notchHeight: notchH, ns: mascotNS)
                                     .transition(.opacity)
                             } else {
-                                CompactContent(notchWidth: notchW, notchHeight: notchH)
+                                CompactContent(notchWidth: notchW, notchHeight: notchH, ns: mascotNS)
                                     .transition(.opacity)
                             }
                         }
@@ -179,7 +182,9 @@ struct NotchView: View {
         }
         .frame(width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.36, dampingFraction: 0.82), value: AnimKey(expanded: expanded, active: active))
+        // Slightly under-damped so the pill gel-jiggles open like the real
+        // Dynamic Island instead of sliding to a dead stop.
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: AnimKey(expanded: expanded, active: active))
     }
 
     /// The panel surface. Pitch black by default (so it disappears into the
@@ -252,52 +257,33 @@ struct NotchView: View {
 
 private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
+    @EnvironmentObject var notchState: NotchState
     let notchWidth: CGFloat
     let notchHeight: CGFloat
+    let ns: Namespace.ID
 
     var body: some View {
         if store.summary == .idle || !NotchLayout.showsEars {
             Color.clear   // nothing at rest — physical notch only
         } else {
-            // A single pulse dot just right of the camera. No background box, so
-            // it never looks like a second notch. Full details show on hover.
+            // The Pulse mascot sits just right of the camera. No background box,
+            // so it never looks like a second notch. Full details show on hover.
             HStack(spacing: 0) {
                 Color.clear.frame(maxWidth: .infinity)   // left ear (keeps notch centered)
                 Color.clear.frame(width: notchWidth)      // camera gap
                 HStack(spacing: 0) {
-                    PulseDot(color: dotColor)
+                    PulseFace(mood: .init(summary: store.summary), size: 15)
+                        .matchedGeometryEffect(id: "pulseMascot", in: ns,
+                                               properties: .position,
+                                               isSource: !notchState.isExpanded)
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.leading, 8)
+                .padding(.leading, 6)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, max(4, (notchHeight - 9) / 2))
+            .padding(.top, max(2, (notchHeight - 22) / 2))
         }
-    }
-
-    private var dotColor: Color {
-        switch store.summary {
-        case .success: return .green                                  // done → green
-        case .failure: return .red                                    // failed → red
-        default: return Color(red: 1, green: 0.36, blue: 0.45)        // running → brand red
-        }
-    }
-}
-
-/// A small pulsing dot with a soft glow — the collapsed "running" indicator.
-private struct PulseDot: View {
-    let color: Color
-    @State private var on = false
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
-            .shadow(color: color.opacity(0.9), radius: on ? 5 : 1.5)
-            .scaleEffect(on ? 1 : 0.68)
-            .opacity(on ? 1 : 0.55)
-            .animation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true), value: on)
-            .onAppear { on = true }
     }
 }
 
@@ -318,25 +304,71 @@ private struct CelebrationOverlay: View {
     }
 }
 
+/// A physically-simulated confetti burst: pieces fire out radially, arc under
+/// gravity, spin, and fade — with a bright ring that flashes outward on impact.
+/// Rendered in a single `Canvas` driven by `TimelineView(.animation)` so it
+/// only costs frames for the ~1.1s it's alive (it exists only during a
+/// success celebration).
 private struct Confetti: View {
-    @State private var go = false
-    private let pieces = 16
-    private let colors: [Color] = [.green, .mint, .teal, .white, .yellow]
+    private struct Piece {
+        let vx, vy: CGFloat      // initial velocity (points/sec)
+        let spin: CGFloat        // rotation speed (rad/sec)
+        let size: CGFloat
+        let color: Color
+    }
+
+    private let start = Date()
+    private let life: Double = 1.1
+    private let gravity: CGFloat = 620
+    private let pieces: [Piece]
+
+    init() {
+        let palette: [Color] = [
+            Color(red: 0.30, green: 0.85, blue: 0.45), .mint, .teal, .white,
+            Color(red: 1, green: 0.82, blue: 0.30), Color(red: 1, green: 0.36, blue: 0.45)
+        ]
+        pieces = (0..<26).map { _ in
+            let angle = Double.random(in: (-Double.pi * 0.85)...(-Double.pi * 0.15)) // fan upward
+            let speed = CGFloat.random(in: 120...260)
+            return Piece(
+                vx: CGFloat(cos(angle)) * speed + CGFloat.random(in: -30...30),
+                vy: CGFloat(sin(angle)) * speed,
+                spin: CGFloat.random(in: -8...8),
+                size: CGFloat.random(in: 3.5...6.5),
+                color: palette.randomElement() ?? .white)
+        }
+    }
 
     var body: some View {
-        ZStack {
-            ForEach(0..<pieces, id: \.self) { i in
-                let angle = Double(i) / Double(pieces) * 2 * .pi
-                let dist: CGFloat = go ? 60 : 0
-                Circle()
-                    .fill(colors[i % colors.count])
-                    .frame(width: 5, height: 5)
-                    .offset(x: cos(angle) * dist, y: sin(angle) * dist - (go ? 6 : 0))
-                    .opacity(go ? 0 : 1)
-                    .scaleEffect(go ? 0.4 : 1)
+        TimelineView(.animation) { tl in
+            let t = tl.date.timeIntervalSince(start)
+            Canvas { ctx, size in
+                let origin = CGPoint(x: size.width / 2, y: size.height * 0.55)
+
+                // Impact ring.
+                let ringT = min(1, t / 0.5)
+                if ringT < 1 {
+                    let r = CGFloat(ringT) * max(size.width, 40) * 0.6
+                    let ring = Path(ellipseIn: CGRect(x: origin.x - r, y: origin.y - r,
+                                                      width: r * 2, height: r * 2))
+                    ctx.stroke(ring, with: .color(.white.opacity(0.5 * (1 - ringT))),
+                               lineWidth: 2 * (1 - ringT) + 0.5)
+                }
+
+                guard t < life else { return }
+                let fade = 1 - t / life
+                for p in pieces {
+                    let x = origin.x + p.vx * t
+                    let y = origin.y + p.vy * t + 0.5 * gravity * CGFloat(t * t)
+                    var rect = ctx
+                    rect.translateBy(x: x, y: y)
+                    rect.rotate(by: .radians(Double(p.spin) * t))
+                    rect.opacity = fade
+                    let box = CGRect(x: -p.size / 2, y: -p.size / 2, width: p.size, height: p.size * 0.7)
+                    rect.fill(Path(roundedRect: box, cornerRadius: 1), with: .color(p.color))
+                }
             }
         }
-        .onAppear { withAnimation(.easeOut(duration: 1.1)) { go = true } }
     }
 }
 
@@ -398,12 +430,13 @@ private struct ExpandedDashboard: View {
     @EnvironmentObject var pages: PagesModel
     @EnvironmentObject var approvals: ApprovalStore
     let notchHeight: CGFloat
+    let ns: Namespace.ID
 
     private var sections: [WidgetKind] { pages.current.widgets }
 
     var body: some View {
         VStack(spacing: 0) {
-            DashboardTopBar()
+            DashboardTopBar(ns: ns)
                 .frame(height: max(notchHeight, 32))
 
             Hairline(axis: .horizontal)
@@ -551,10 +584,16 @@ private struct DashboardTopBar: View {
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var theme: ThemeModel
+    let ns: Namespace.ID
 
     var body: some View {
         HStack(spacing: 6) {
-            // No brand mark / title — the floating tab row already shows the page.
+            // The Pulse mascot — its expanded home. Flies up from the notch ear.
+            PulseFace(mood: .init(summary: store.summary), size: 20)
+                .matchedGeometryEffect(id: "pulseMascot", in: ns,
+                                       properties: .position,
+                                       isSource: notchState.isExpanded)
+                .padding(.leading, 2)
             Spacer()
 
             if store.activities.contains(where: { $0.status != .running }) {
