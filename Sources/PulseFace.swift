@@ -7,10 +7,12 @@ import SwiftUI
 /// the notch ear) and expanded (in the dashboard bar); a `matchedGeometryEffect`
 /// flies it between the two as the panel opens.
 struct PulseFace: View {
-    enum Mood: Equatable { case idle, sleeping, happy, sad, vibing }
+    enum Mood: Equatable { case idle, sleeping, working, happy, sad, vibing }
 
     let mood: Mood
     var size: CGFloat = 22
+    /// 0…1 — how hard the user is typing; drives the "working" nod depth.
+    var intensity: Double = 0
 
     @State private var breathe = false
     @State private var gaze: CGFloat = 0     // -1…1 idle look-around
@@ -21,6 +23,7 @@ struct PulseFace: View {
         switch mood {
         case .idle:     return Color(white: 0.84)
         case .sleeping: return Color(red: 0.52, green: 0.60, blue: 0.95)   // calm night blue
+        case .working:  return Color(red: 0.36, green: 0.72, blue: 0.98)   // focused sky blue
         case .happy:    return Color(red: 0.30, green: 0.85, blue: 0.45)
         case .sad:      return Color(red: 1.00, green: 0.34, blue: 0.34)
         case .vibing:   return Color(red: 0.72, green: 0.42, blue: 0.98)   // party purple
@@ -30,6 +33,7 @@ struct PulseFace: View {
     private var eyeStyle: EyePair.Style {
         switch mood {
         case .sleeping: return .closed
+        case .working:  return .focused
         case .happy:    return .wide
         case .sad:      return .droopy
         case .idle, .vibing: return .open
@@ -42,10 +46,18 @@ struct PulseFace: View {
         case .happy:    return 1
         case .sad:      return -1
         case .vibing:   return 0.7
+        case .working:  return 0.0        // lips pressed in concentration
         case .sleeping: return 0.05
         case .idle:     return 0.15
         }
     }
+
+    // Bob (rhythmic nod): music sways gently; working nods to your typing speed.
+    private var bobActive: Bool { mood == .vibing || mood == .working }
+    private var bobAmount: CGFloat {
+        mood == .working ? size * (0.03 + 0.11 * CGFloat(intensity)) : size * 0.09
+    }
+    private var bobDuration: Double { mood == .working ? 0.22 : 0.42 }
 
     var body: some View {
         ZStack {
@@ -66,18 +78,19 @@ struct PulseFace: View {
                 .overlay(Circle().stroke(.white.opacity(0.28), lineWidth: 0.6))
                 .frame(width: size, height: size)
 
-            // Face features. Bobs to the beat while vibing.
+            // Face features. Nods to music while vibing, to your keys while working.
             VStack(spacing: size * 0.12) {
                 ZStack {
                     EyePair(style: eyeStyle, size: size, gaze: gaze)
                     if mood == .vibing { Sunglasses(size: size) }
+                    if mood == .working { CoderGlasses(size: size) }
                 }
                 MouthShape(curve: mouthCurve)
                     .stroke(.black.opacity(0.78),
                             style: StrokeStyle(lineWidth: max(1.2, size * 0.085), lineCap: .round))
                     .frame(width: size * 0.44, height: size * 0.24)
             }
-            .modifier(Bob(active: mood == .vibing, amount: size * 0.09))
+            .modifier(Bob(active: bobActive, amount: bobAmount, duration: bobDuration))
 
             // Sleepy "z z z" drifting up from the temple.
             if mood == .sleeping {
@@ -110,7 +123,7 @@ struct PulseFace: View {
 // MARK: - Eyes
 
 private struct EyePair: View {
-    enum Style { case open, wide, closed, droopy }
+    enum Style { case open, wide, closed, droopy, focused }
     let style: Style
     let size: CGFloat
     let gaze: CGFloat
@@ -148,6 +161,12 @@ private struct EyePair: View {
                 .fill(.black.opacity(0.7))
                 .frame(width: size * 0.14, height: size * 0.14)
                 .offset(y: size * 0.05)
+        case .focused:
+            // Narrowed, determined eyes cast slightly downward at the "screen".
+            Capsule()
+                .fill(.black.opacity(0.82))
+                .frame(width: size * 0.16, height: size * 0.11)
+                .offset(y: size * 0.04)
         }
     }
 }
@@ -194,6 +213,32 @@ private struct Sunglasses: View {
     }
 }
 
+/// Clear rounded frames — reading/coder glasses worn while you're working.
+private struct CoderGlasses: View {
+    let size: CGFloat
+
+    var body: some View {
+        let lensW = size * 0.30, lensH = size * 0.24
+        HStack(spacing: 0) {
+            lens(lensW, lensH)
+            Rectangle().fill(.black.opacity(0.55)).frame(width: size * 0.10, height: size * 0.028)
+            lens(lensW, lensH)
+        }
+    }
+
+    private func lens(_ w: CGFloat, _ h: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: h * 0.4)
+            .fill(.cyan.opacity(0.14))
+            .overlay(RoundedRectangle(cornerRadius: h * 0.4)
+                .stroke(.black.opacity(0.6), lineWidth: max(1, size * 0.045)))
+            .overlay(Capsule().fill(.white.opacity(0.4))
+                .frame(width: w * 0.45, height: h * 0.1)
+                .rotationEffect(.degrees(-28))
+                .offset(x: -w * 0.1, y: -h * 0.14))
+            .frame(width: w, height: h)
+    }
+}
+
 /// Three sleepy "z"s drifting up and fading, staggered.
 private struct SleepZs: View {
     let size: CGFloat
@@ -215,10 +260,12 @@ private struct SleepZs: View {
     }
 }
 
-/// A subtle vertical nod that only runs while `active` (music playing).
+/// A rhythmic vertical nod that runs only while `active`. `amount` sets depth
+/// (updates live with typing intensity) and `duration` sets the beat.
 private struct Bob: ViewModifier {
     let active: Bool
     let amount: CGFloat
+    var duration: Double = 0.42
     @State private var up = false
 
     func body(content: Content) -> some View {
@@ -231,7 +278,7 @@ private struct Bob: ViewModifier {
     }
 
     private func start() {
-        withAnimation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true)) {
+        withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
             up = true
         }
     }
@@ -241,14 +288,22 @@ private struct Bob: ViewModifier {
 
 extension PulseFace.Mood {
     /// Pick the mascot's mood from everything happening on the Mac, by priority:
-    /// a problem (fail) > a win (success) > a working agent (nap) > media (vibe)
-    /// > nothing (idle).
-    static func resolve(summary: ActivityStore.Summary, mediaPlaying: Bool) -> PulseFace.Mood {
+    /// a problem (fail) > a win (success) > *you* working > a working agent (nap)
+    /// > media (vibe) > nothing (idle).
+    ///
+    /// If you're actively coding while an agent runs, you pair-program — the
+    /// mascot works with you rather than napping; pause and it dozes off.
+    static func resolve(summary: ActivityStore.Summary,
+                        mediaPlaying: Bool,
+                        working: Bool) -> PulseFace.Mood {
         switch summary {
         case .failure: return .sad
         case .success: return .happy
-        case .running: return .sleeping
-        case .idle:    return mediaPlaying ? .vibing : .idle
+        case .running: return working ? .working : .sleeping
+        case .idle:
+            if working { return .working }
+            if mediaPlaying { return .vibing }
+            return .idle
         }
     }
 }

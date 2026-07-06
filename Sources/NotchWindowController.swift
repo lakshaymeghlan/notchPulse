@@ -55,6 +55,7 @@ final class NotchWindowController {
     private let shortcuts: ShortcutsModel
     private let bluetooth: BluetoothMonitor
     private let pages: PagesModel
+    private let userActivity: UserActivityMonitor
     private var cancellables = Set<AnyCancellable>()
     private var peekTask: Task<Void, Never>?
     private var positionRetries = 0
@@ -83,7 +84,8 @@ final class NotchWindowController {
         notes: NotesModel,
         shortcuts: ShortcutsModel,
         bluetooth: BluetoothMonitor,
-        pages: PagesModel
+        pages: PagesModel,
+        userActivity: UserActivityMonitor
     ) {
         self.notchState = notchState
         self.store = store
@@ -107,6 +109,7 @@ final class NotchWindowController {
         self.shortcuts = shortcuts
         self.bluetooth = bluetooth
         self.pages = pages
+        self.userActivity = userActivity
 
         let panel = NotchPanel(
             contentRect: NSRect(x: 0, y: 0, width: NotchMetrics.windowWidth, height: NotchMetrics.windowHeight),
@@ -161,6 +164,7 @@ final class NotchWindowController {
             .environmentObject(shortcuts)
             .environmentObject(bluetooth)
             .environmentObject(pages)
+            .environmentObject(userActivity)
         let hosting = NSHostingView(rootView: root)
         hosting.sizingOptions = []
         hosting.translatesAutoresizingMaskIntoConstraints = true
