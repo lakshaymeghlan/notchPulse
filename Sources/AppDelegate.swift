@@ -64,6 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         server.start()
         self.server = server
 
+        // Poll now-playing globally so the collapsed mascot can "vibe" to music
+        // even when the Music widget isn't open. Cheap and prompt-free unless a
+        // supported player is actually running (only then is any AppleScript run).
+        music.startPolling()
+
         // Global shortcut (⌥⌘N) to open settings from any app.
         GlobalHotKey.shared.register { [weak self] in
             self?.openSettings()

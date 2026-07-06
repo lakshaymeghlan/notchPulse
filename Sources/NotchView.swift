@@ -258,21 +258,27 @@ struct NotchView: View {
 private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var notchState: NotchState
+    @EnvironmentObject var music: NowPlayingMonitor
     let notchWidth: CGFloat
     let notchHeight: CGFloat
     let ns: Namespace.ID
 
+    private var mood: PulseFace.Mood {
+        .resolve(summary: store.summary, mediaPlaying: music.track?.isPlaying == true)
+    }
+
     var body: some View {
-        if store.summary == .idle || !NotchLayout.showsEars {
-            Color.clear   // nothing at rest — physical notch only
+        if !NotchLayout.showsEars {
+            Color.clear   // ears off ⇒ physical notch only
         } else {
-            // The Pulse mascot sits just right of the camera. No background box,
-            // so it never looks like a second notch. Full details show on hover.
+            // The Pulse mascot always lives just right of the camera — a little
+            // face in the notch that reacts to what you're doing. No background
+            // box, so it never looks like a second notch.
             HStack(spacing: 0) {
                 Color.clear.frame(maxWidth: .infinity)   // left ear (keeps notch centered)
                 Color.clear.frame(width: notchWidth)      // camera gap
                 HStack(spacing: 0) {
-                    PulseFace(mood: .init(summary: store.summary), size: 15)
+                    PulseFace(mood: mood, size: 15)
                         .matchedGeometryEffect(id: "pulseMascot", in: ns,
                                                properties: .position,
                                                isSource: !notchState.isExpanded)
@@ -584,12 +590,17 @@ private struct DashboardTopBar: View {
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var theme: ThemeModel
+    @EnvironmentObject var music: NowPlayingMonitor
     let ns: Namespace.ID
+
+    private var mood: PulseFace.Mood {
+        .resolve(summary: store.summary, mediaPlaying: music.track?.isPlaying == true)
+    }
 
     var body: some View {
         HStack(spacing: 6) {
             // The Pulse mascot — its expanded home. Flies up from the notch ear.
-            PulseFace(mood: .init(summary: store.summary), size: 20)
+            PulseFace(mood: mood, size: 20)
                 .matchedGeometryEffect(id: "pulseMascot", in: ns,
                                        properties: .position,
                                        isSource: notchState.isExpanded)
