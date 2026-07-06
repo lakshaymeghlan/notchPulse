@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let shortcuts = ShortcutsModel()
     let bluetooth = BluetoothMonitor()
     let pages = PagesModel()
+    let userActivity = UserActivityMonitor()
     private var windowController: NotchWindowController?
     private var server: ActivityServer?
 
@@ -55,10 +56,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             notes: notes,
             shortcuts: shortcuts,
             bluetooth: bluetooth,
-            pages: pages
+            pages: pages,
+            userActivity: userActivity
         )
         controller.show()
         windowController = controller
+
+        // Mirror what the user is doing (foreground app + typing pace) so the
+        // mascot works alongside them.
+        userActivity.start()
 
         let server = ActivityServer(store: store, approvals: approvals)
         server.start()
@@ -91,6 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
+        userActivity.stop()
         GlobalHotKey.shared.unregister()
     }
 
