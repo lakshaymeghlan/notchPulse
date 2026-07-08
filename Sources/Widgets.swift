@@ -1088,6 +1088,10 @@ struct TeleprompterSection: View {
                         .multilineTextAlignment(.leading)
                         .lineSpacing(2)
                         .frame(width: geo.size.width, alignment: .topLeading)
+                        // Force the text to its FULL natural height before we
+                        // measure it — otherwise the parent's (short) height
+                        // proposal clamps it and maxOffset comes out ~0 (no scroll).
+                        .fixedSize(horizontal: false, vertical: true)
                         .background(
                             GeometryReader { textGeo in
                                 Color.clear
