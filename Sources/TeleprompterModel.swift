@@ -61,7 +61,7 @@ final class TeleprompterModel: ObservableObject {
         guard !isPlaying else { return }
         if offset >= maxOffset && maxOffset > 0 { reset() }   // restart if at the end
         isPlaying = true
-        let t = Timer.scheduledTimer(withTimeInterval: tick, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: tick, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.isPlaying else { return }
                 self.offset += CGFloat(self.speed * self.tick)
@@ -70,6 +70,9 @@ final class TeleprompterModel: ObservableObject {
             }
         }
         t.tolerance = tick / 2
+        // .common mode so the scroll keeps ticking while the pointer is tracking
+        // over the notch (default-mode timers pause during event tracking).
+        RunLoop.main.add(t, forMode: .common)
         timer = t
     }
 
@@ -81,8 +84,13 @@ final class TeleprompterModel: ObservableObject {
 
     func reset() { offset = 0; elapsed = 0 }
 
-    func slower() { speed = max(8, speed - 8) }
-    func faster() { speed = min(200, speed + 8) }
+    /// Allowed scroll-speed range (pt/sec). Floor is intentionally very low so
+    /// the read can be paced right down for slow, deliberate delivery.
+    static let minSpeed: Double = 2
+    static let maxSpeed: Double = 200
+
+    func slower() { speed = max(Self.minSpeed, speed - 3) }
+    func faster() { speed = min(Self.maxSpeed, speed + 3) }
 
     func smallerText() { fontSize = max(10, fontSize - 2) }
     func biggerText() { fontSize = min(40, fontSize + 2) }
@@ -90,7 +98,7 @@ final class TeleprompterModel: ObservableObject {
     /// Set the speed so the whole script scrolls past in `seconds`.
     func setDuration(_ seconds: Double) {
         guard maxOffset > 0, seconds > 0 else { return }
-        speed = min(200, max(8, Double(maxOffset) / seconds))
+        speed = min(Self.maxSpeed, max(Self.minSpeed, Double(maxOffset) / seconds))
     }
 
     static func clock(_ s: Double) -> String {
