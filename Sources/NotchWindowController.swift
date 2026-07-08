@@ -188,6 +188,17 @@ final class NotchWindowController {
             }
             .store(in: &cancellables)
 
+        // Keep the notch open while the teleprompter plays, so you can read
+        // hands-free (looking at the lens) without it collapsing.
+        teleprompter.$isPlaying
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] playing in
+                self?.notchState.stayOpen = playing
+                self?.evaluatePointer()
+            }
+            .store(in: &cancellables)
+
         installPointerMonitors()
 
         // Peek only on meaningful edges — when an agent STARTS (idle→active) or
