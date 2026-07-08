@@ -279,7 +279,7 @@ struct TeleprompterSettings: View {
             // Manual speed.
             HStack {
                 Image(systemName: "tortoise.fill").foregroundStyle(.secondary)
-                Slider(value: $prompter.speed, in: 8...200)
+                Slider(value: $prompter.speed, in: TeleprompterModel.minSpeed...TeleprompterModel.maxSpeed)
                 Image(systemName: "hare.fill").foregroundStyle(.secondary)
                 Text("\(Int(prompter.speed)) pt/s").monospacedDigit().frame(width: 64, alignment: .trailing)
             }
