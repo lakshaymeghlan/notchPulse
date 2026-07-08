@@ -24,6 +24,10 @@ final class NotchState: ObservableObject {
     /// Keeps the panel open and makes widget content non-interactive.
     @Published var editingLayout: Bool = false { didSet { recompute() } }
 
+    /// Keep the panel open regardless of hover (e.g. while the teleprompter is
+    /// playing, so you can read hands-free while looking at the camera).
+    @Published var stayOpen: Bool = false { didSet { recompute() } }
+
     /// Derived: expanded when hovered, peeking, or pinned.
     @Published private(set) var isExpanded: Bool = false
 
@@ -46,7 +50,7 @@ final class NotchState: ObservableObject {
     }
 
     private func recompute() {
-        let next = isHovering || isPeeking || isPinned || forceOpen || editingLayout
+        let next = isHovering || isPeeking || isPinned || forceOpen || editingLayout || stayOpen
         if next != isExpanded { isExpanded = next }
     }
 }
