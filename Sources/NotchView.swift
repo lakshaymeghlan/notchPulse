@@ -67,9 +67,10 @@ enum NotchLayout {
     /// Dynamic collapsed width: two EQUAL halves (sized to the wider label) on
     /// each side of the camera, so the pill is symmetric and the labels read as
     /// centered/balanced — not shoved to one side.
-    static func collapsedWidth(notchWidth: CGFloat, active: Bool) -> CGFloat {
-        guard active, showsEars else { return notchWidth }
-        return notchWidth + 90   // room for a small pulse dot beside the notch
+    static func collapsedWidth(notchWidth: CGFloat, summary: ActivityStore.Summary, source: String?) -> CGFloat {
+        guard summary != .idle, showsEars else { return notchWidth }
+        let (l, r) = LiveActivity.labels(summary: summary, source: source)
+        return notchWidth + LiveActivity.halfWidth(left: l, right: r) * 2
     }
 }
 
@@ -116,9 +117,6 @@ struct NotchView: View {
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var theme: ThemeModel
-    /// Shared namespace so the Pulse mascot flies between its collapsed home (the
-    /// notch ear) and its expanded home (the dashboard bar) as the panel opens.
-    @Namespace private var mascotNS
     // Observed only so the surface re-lays-out when the "ears" toggle changes.
     @AppStorage("liveEars") private var liveEars = true
     @AppStorage("glassMode") private var glassModeRaw = GlassMode.frosted.rawValue
@@ -134,7 +132,7 @@ struct NotchView: View {
     var body: some View {
         let notchW = notchState.notchSize.width  > 0 ? notchState.notchSize.width  : NotchMetrics.fallbackNotchWidth
         let notchH = notchState.notchSize.height > 0 ? notchState.notchSize.height : NotchMetrics.fallbackNotchHeight
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, summary: store.summary, source: latestSource)
         let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
         let shape = NotchShape(topCornerRadius: 12, bottomCornerRadius: expanded ? 30 : (active ? 16 : 10))
@@ -152,10 +150,10 @@ struct NotchView: View {
                         // burned CPU at idle. Now collapsed = static text only.
                         ZStack {
                             if expanded {
-                                ExpandedDashboard(notchHeight: notchH, ns: mascotNS)
+                                ExpandedDashboard(notchHeight: notchH)
                                     .transition(.opacity)
                             } else {
-                                CompactContent(notchWidth: notchW, notchHeight: notchH, ns: mascotNS)
+                                CompactContent(notchWidth: notchW, notchHeight: notchH)
                                     .transition(.opacity)
                             }
                         }
@@ -257,33 +255,56 @@ struct NotchView: View {
 
 private struct CompactContent: View {
     @EnvironmentObject var store: ActivityStore
-    @EnvironmentObject var notchState: NotchState
-    @EnvironmentObject var music: NowPlayingMonitor
-    @EnvironmentObject var userActivity: UserActivityMonitor
     let notchWidth: CGFloat
     let notchHeight: CGFloat
-    let ns: Namespace.ID
 
-    private var mood: PulseFace.Mood {
-        .resolve(summary: store.summary,
-                 mediaPlaying: music.track?.isPlaying == true,
-                 workingContext: userActivity.isWorkingContext,
-                 typing: userActivity.isTyping)
+    private var source: String? {
+        (store.activities.first(where: { $0.status == .running }) ?? store.activities.first)?.source
+    }
+
+    private var statusColor: Color {
+        switch store.summary {
+        case .success: return .green
+        case .failure: return .red
+        case .running: return Color(red: 1, green: 0.36, blue: 0.45)   // brand pink
+        case .idle:    return .white
+        }
     }
 
     var body: some View {
-        if !NotchLayout.showsEars {
-            Color.clear   // ears off ⇒ physical notch only
+        let summary = store.summary
+        if summary == .idle || !NotchLayout.showsEars {
+            Color.clear   // nothing at rest — physical notch only
         } else {
-            // The face lives ON the notch — bare eyes + mouth straddling the
-            // camera (its "nose") — so the status (green grin on finish, red
-            // frown on fail) is right where you're already looking.
-            NotchFace(mood: mood, width: notchWidth, height: notchHeight)
-                .frame(width: notchWidth, height: notchHeight)
-                .matchedGeometryEffect(id: "pulseMascot", in: ns,
-                                       properties: .position,
-                                       isSource: !notchState.isExpanded)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            // Live-activity labels straddling the camera: the agent's name on
+            // the left, its status (running / done / failed) on the right — so
+            // you can read "Claude Code · running" right in the notch.
+            let (left, right) = LiveActivity.labels(summary: summary, source: source)
+            let half = LiveActivity.halfWidth(left: left, right: right)
+            HStack(spacing: 0) {
+                Text(left)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(width: half - LiveActivity.gap, alignment: .trailing)
+                    .padding(.trailing, LiveActivity.gap)
+
+                Color.clear.frame(width: notchWidth)   // camera gap
+
+                HStack(spacing: 5) {
+                    Circle().fill(statusColor)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: statusColor.opacity(0.9), radius: 2)
+                    Text(right)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(statusColor)
+                        .lineLimit(1)
+                }
+                .padding(.leading, LiveActivity.gap)
+                .frame(width: half - LiveActivity.gap, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, max(2, (notchHeight - 14) / 2))
         }
     }
 }
@@ -431,13 +452,12 @@ private struct ExpandedDashboard: View {
     @EnvironmentObject var pages: PagesModel
     @EnvironmentObject var approvals: ApprovalStore
     let notchHeight: CGFloat
-    let ns: Namespace.ID
 
     private var sections: [WidgetKind] { pages.current.widgets }
 
     var body: some View {
         VStack(spacing: 0) {
-            DashboardTopBar(ns: ns)
+            DashboardTopBar()
                 .frame(height: max(notchHeight, 32))
 
             Hairline(axis: .horizontal)
@@ -585,25 +605,9 @@ private struct DashboardTopBar: View {
     @EnvironmentObject var store: ActivityStore
     @EnvironmentObject var notchState: NotchState
     @EnvironmentObject var theme: ThemeModel
-    @EnvironmentObject var music: NowPlayingMonitor
-    @EnvironmentObject var userActivity: UserActivityMonitor
-    let ns: Namespace.ID
-
-    private var mood: PulseFace.Mood {
-        .resolve(summary: store.summary,
-                 mediaPlaying: music.track?.isPlaying == true,
-                 workingContext: userActivity.isWorkingContext,
-                 typing: userActivity.isTyping)
-    }
 
     var body: some View {
         HStack(spacing: 6) {
-            // The Pulse mascot — its expanded home. Flies up from the notch ear.
-            PulseFace(mood: mood, size: 20, intensity: userActivity.mascotIntensity)
-                .matchedGeometryEffect(id: "pulseMascot", in: ns,
-                                       properties: .position,
-                                       isSource: notchState.isExpanded)
-                .padding(.leading, 2)
             Spacer()
 
             if store.activities.contains(where: { $0.status != .running }) {

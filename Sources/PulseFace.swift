@@ -286,6 +286,89 @@ private struct Bob: ViewModifier {
 
 // MARK: - Mood resolution
 
+/// Bare eyes + mouth drawn directly onto the physical notch (no disc) so the
+/// notch itself becomes the face — with the camera as its "nose". Because the
+/// whole face turns green & smiles on success (red & frowns on failure), the
+/// finish status is impossible to miss right where you're already looking.
+struct NotchFace: View {
+    let mood: PulseFace.Mood
+    let width: CGFloat
+    let height: CGFloat
+
+    @State private var breathe = false
+
+    private var color: Color {
+        switch mood {
+        case .idle:     return .white.opacity(0.92)
+        case .sleeping: return Color(red: 0.66, green: 0.72, blue: 1.0).opacity(0.9)
+        case .working:  return Color(red: 0.46, green: 0.80, blue: 1.0)
+        case .happy:    return Color(red: 0.32, green: 0.92, blue: 0.52)
+        case .sad:      return Color(red: 1.00, green: 0.36, blue: 0.36)
+        case .vibing:   return Color(red: 0.82, green: 0.56, blue: 1.0)
+        }
+    }
+
+    private var mouthCurve: CGFloat {
+        switch mood {
+        case .happy:    return 1
+        case .sad:      return -1
+        case .vibing:   return 0.7
+        case .working:  return 0.0
+        case .sleeping: return 0.1
+        case .idle:     return 0.25
+        }
+    }
+
+    var body: some View {
+        // Keep every feature within the UPPER portion of the notch height so the
+        // whole face stays inside the black notch (never spilling onto the
+        // wallpaper below it, even if the measured height runs a touch tall).
+        let eyeGap = max(14, width * 0.11)          // flank the centered camera
+        let eyeH = max(7, height * 0.30)
+        let cx = width / 2
+        let eyeY = height * 0.38
+        ZStack {
+            eye(eyeH).position(x: cx - eyeGap, y: eyeY)
+            eye(eyeH).position(x: cx + eyeGap, y: eyeY)
+            MouthShape(curve: mouthCurve)
+                .stroke(color, style: StrokeStyle(lineWidth: max(2.2, height * 0.08), lineCap: .round))
+                .frame(width: width * 0.26, height: height * 0.15)
+                .position(x: cx, y: height * 0.62)
+        }
+        .frame(width: width, height: height)
+        // Always glow a little so the face pops off the black notch; brighter
+        // on a win/fail so the finish status jumps out.
+        .shadow(color: color.opacity(0.9), radius: mood == .happy || mood == .sad ? 6 : 3)
+        // Breathe while an agent runs so "running" is clearly alive.
+        .opacity(mood == .sleeping ? (breathe ? 1 : 0.7) : 1)
+        .scaleEffect(mood == .sleeping && breathe ? 1.12 : 1)
+        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: mood)
+        .allowsHitTesting(false)                    // never eat menu-bar clicks
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                breathe = true
+            }
+        }
+    }
+
+    @ViewBuilder private func eye(_ h: CGFloat) -> some View {
+        if mood == .sleeping {
+            // Closed, content curve.
+            Capsule().fill(color).frame(width: h * 1.2, height: max(2.6, h * 0.32))
+        } else {
+            Capsule()
+                .fill(color)
+                .frame(width: max(4, h * 0.62), height: h)
+                // Quick blink every ~2.8s.
+                .phaseAnimator([false, true]) { v, closed in
+                    v.scaleEffect(y: closed ? 0.14 : 1, anchor: .center)
+                } animation: { closed in
+                    closed ? .easeIn(duration: 0.08).delay(2.8) : .easeOut(duration: 0.10)
+                }
+        }
+    }
+}
+
 extension PulseFace.Mood {
     /// Pick the mascot's mood from everything happening on the Mac, by priority:
     /// a problem (fail) > a win (success) > *you* working > a working agent (nap)
@@ -295,13 +378,19 @@ extension PulseFace.Mood {
     /// mascot works with you rather than napping; pause and it dozes off.
     static func resolve(summary: ActivityStore.Summary,
                         mediaPlaying: Bool,
-                        working: Bool) -> PulseFace.Mood {
+                        workingContext: Bool,
+                        typing: Bool) -> PulseFace.Mood {
         switch summary {
         case .failure: return .sad
         case .success: return .happy
-        case .running: return working ? .working : .sleeping
+        case .running:
+            // An agent is running → nap so you can SEE it's running. Only if
+            // you're *actively typing* alongside it do we pair-program instead
+            // (merely having a code editor open doesn't count — otherwise the
+            // running state would be invisible while you sit in your editor).
+            return typing ? .working : .sleeping
         case .idle:
-            if working { return .working }
+            if workingContext || typing { return .working }
             if mediaPlaying { return .vibing }
             return .idle
         }

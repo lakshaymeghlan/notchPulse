@@ -118,10 +118,18 @@ final class NotchWindowController {
             defer: false
         )
         panel.isFloatingPanel = true
-        // Shielding-window level floats above other apps' full-screen spaces, so
-        // the notch stays visible when you switch to a full-screen app's desktop.
-        panel.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        // Sit just above the menu bar. Combined with the collection behavior
+        // below (canJoinAllSpaces + fullScreenAuxiliary) the notch still overlays
+        // the menu bar and floats over normal AND full-screen apps — but, unlike
+        // the old CGShieldingWindowLevel (the highest level, above the screen
+        // saver), it tucks UNDER Mission Control / Spaces, so moving a window or
+        // opening Mission Control no longer leaves the activity stuck on top.
+        panel.level = .statusBar
+        // .moveToActiveSpace (instead of canJoinAllSpaces + stationary): the notch
+        // lives on ONE space, so swiping to the next space slides it away for the
+        // moment, then it hops to the new space once you land (re-shown in
+        // spaceChanged). fullScreenAuxiliary keeps it available over full-screen.
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
@@ -251,7 +259,10 @@ final class NotchWindowController {
     }
 
     @objc private func spaceChanged() {
-        panel.orderFrontRegardless()
+        // Landed on a new space — reposition for the (possibly different) screen
+        // and re-show, which with .moveToActiveSpace hops the notch onto it.
+        positionRetries = 0
+        ensurePositioned()
     }
 
     deinit {
@@ -267,18 +278,19 @@ final class NotchWindowController {
     /// local while we are) keep it in sync without ever blocking clicks.
     private func installPointerMonitors() {
         let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
-        let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+        // A button-held drag (e.g. moving a window past the top of the screen)
+        // must NOT expand the notch — only true hover (mouseMoved) does. We still
+        // keep click-through / display-following in sync during drags.
+        let handle: @Sendable (NSEvent) -> Void = { [weak self] event in
             MainActor.assumeIsolated {
                 self?.maybeFollowCursor()
-                self?.evaluatePointer()
+                self?.evaluatePointer(updateHover: event.type != .leftMouseDragged)
             }
-        })
+        }
+        let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: handle)
         if let global { pointerMonitors.append(global) }
-        let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
-            MainActor.assumeIsolated {
-                self?.maybeFollowCursor()
-                self?.evaluatePointer()
-            }
+        let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { event in
+            handle(event)
             return event
         })
         if let local { pointerMonitors.append(local) }
@@ -321,7 +333,7 @@ final class NotchWindowController {
                       width: local.width, height: local.height)
     }
 
-    private func evaluatePointer() {
+    private func evaluatePointer(updateHover: Bool = true) {
         let inside = screenShapeRect().contains(NSEvent.mouseLocation)
         // While pinned or editing the layout, the panel stays interactive so you
         // can type / drag even if the cursor briefly leaves it.
@@ -329,6 +341,9 @@ final class NotchWindowController {
         if panel.ignoresMouseEvents != !interactive {
             panel.ignoresMouseEvents = !interactive
         }
+        // Skip expand/collapse for button-held drags so moving a window past the
+        // notch never flashes the collapsed activity open for a split second.
+        guard updateHover else { return }
         if notchState.isHovering != inside {
             notchState.isHovering = inside
         }
@@ -449,7 +464,8 @@ final class NotchWindowController {
         let notchW = hasNotch ? anchorNotch.width : NotchMetrics.fallbackNotchWidth
         let collapsedH = hasNotch ? anchorNotch.height : NotchMetrics.fallbackNotchHeight
         let active = store.summary != .idle
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, active: active)
+        let source = (store.activities.first(where: { $0.status == .running }) ?? store.activities.first)?.source
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, summary: store.summary, source: source)
 
         // When collapsed, pad the hit zone (wider + taller) so the cursor
         // reliably catches it on the first approach.
