@@ -21,7 +21,9 @@ final class UserActivityMonitor: ObservableObject {
     @Published private(set) var needsInputAccess: Bool = false
 
     /// You're "working" when you're in a code/terminal app or actively typing.
-    var isWorking: Bool { context == .coding || context == .terminal || isTyping }
+    var isWorking: Bool { isWorkingContext || isTyping }
+    /// Parked in a code/terminal app (passive — may just be reading).
+    var isWorkingContext: Bool { context == .coding || context == .terminal }
 
     /// Nod depth for the mascot: your live typing pace, or a gentle baseline
     /// when you're parked in a code editor but not actively typing (reading).

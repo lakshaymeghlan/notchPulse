@@ -267,31 +267,23 @@ private struct CompactContent: View {
     private var mood: PulseFace.Mood {
         .resolve(summary: store.summary,
                  mediaPlaying: music.track?.isPlaying == true,
-                 working: userActivity.isWorking)
+                 workingContext: userActivity.isWorkingContext,
+                 typing: userActivity.isTyping)
     }
 
     var body: some View {
         if !NotchLayout.showsEars {
             Color.clear   // ears off ⇒ physical notch only
         } else {
-            // The Pulse mascot always lives just right of the camera — a little
-            // face in the notch that reacts to what you're doing. No background
-            // box, so it never looks like a second notch.
-            HStack(spacing: 0) {
-                Color.clear.frame(maxWidth: .infinity)   // left ear (keeps notch centered)
-                Color.clear.frame(width: notchWidth)      // camera gap
-                HStack(spacing: 0) {
-                    PulseFace(mood: mood, size: 15, intensity: userActivity.mascotIntensity)
-                        .matchedGeometryEffect(id: "pulseMascot", in: ns,
-                                               properties: .position,
-                                               isSource: !notchState.isExpanded)
-                    Spacer(minLength: 0)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.leading, 6)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, max(2, (notchHeight - 22) / 2))
+            // The face lives ON the notch — bare eyes + mouth straddling the
+            // camera (its "nose") — so the status (green grin on finish, red
+            // frown on fail) is right where you're already looking.
+            NotchFace(mood: mood, width: notchWidth, height: notchHeight)
+                .frame(width: notchWidth, height: notchHeight)
+                .matchedGeometryEffect(id: "pulseMascot", in: ns,
+                                       properties: .position,
+                                       isSource: !notchState.isExpanded)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 }
@@ -600,7 +592,8 @@ private struct DashboardTopBar: View {
     private var mood: PulseFace.Mood {
         .resolve(summary: store.summary,
                  mediaPlaying: music.track?.isPlaying == true,
-                 working: userActivity.isWorking)
+                 workingContext: userActivity.isWorkingContext,
+                 typing: userActivity.isTyping)
     }
 
     var body: some View {
