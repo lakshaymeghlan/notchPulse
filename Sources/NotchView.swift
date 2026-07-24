@@ -192,12 +192,12 @@ struct NotchView: View {
     /// back to flat here) — clipped to the notch shape with a glass edge.
     @ViewBuilder
     private func surfaceBackground(_ shape: NotchShape) -> some View {
-        // Collapsed draws NO box at all (idle OR running) — painting #000 over
-        // the notch reads as a faint second notch on an LCD. The running state is
-        // shown by a small pulse dot (CompactContent) that floats over the menu
-        // bar with no background. Only the expanded panel draws a surface.
+        // Collapsed: idle draws NOTHING (a #000 box at rest reads as a second
+        // notch). While an agent is active, draw a black pill that hugs the notch
+        // so the "Claude Code · running" labels sit INSIDE it (Dynamic-Island
+        // style) rather than floating loose in the menu bar.
         if !expanded {
-            Color.clear
+            if active { shape.fill(Color.black) } else { Color.clear }
         } else if useGlass {
             switch glassMode {
             case .frosted:
@@ -456,30 +456,33 @@ private struct ExpandedDashboard: View {
     private var sections: [WidgetKind] { pages.current.widgets }
 
     var body: some View {
-        VStack(spacing: 0) {
-            DashboardTopBar()
-                .frame(height: max(notchHeight, 32))
+        // When an agent is asking, show ONLY the question — no clock/widgets.
+        if !approvals.pending.isEmpty {
+            ApprovalBanner()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 8)
+        } else {
+            VStack(spacing: 0) {
+                DashboardTopBar()
+                    .frame(height: max(notchHeight, 32))
 
-            Hairline(axis: .horizontal)
+                Hairline(axis: .horizontal)
 
-            if !approvals.pending.isEmpty {
-                ApprovalBanner()
+                if sections.isEmpty {
+                    Text("No widgets on this page — add some in Widgets & Settings.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    SectionsLayout()
+                        .id(pages.current.id)
+                }
             }
-
-            if sections.isEmpty {
-                Text("No widgets on this page — add some in Widgets & Settings.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                SectionsLayout()
-                    .id(pages.current.id)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, 8)   // 8 + section's 12 ≈ 20pt outer panel padding
+            .padding(.bottom, 4)
+            .animation(.easeInOut(duration: 0.22), value: pages.selectedIndex)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal, 8)   // 8 + section's 12 ≈ 20pt outer panel padding
-        .padding(.bottom, 4)
-        .animation(.easeInOut(duration: 0.22), value: pages.selectedIndex)
     }
 }
 
