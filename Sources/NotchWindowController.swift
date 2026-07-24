@@ -307,9 +307,7 @@ final class NotchWindowController {
         case .leftMouseUp:
             if draggingHidden {
                 draggingHidden = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-                    self?.setPanelHidden(false)
-                }
+                setPanelHidden(false)   // instant — no lag on reappear
             }
             evaluatePointer(updateHover: true)
         default:   // mouseMoved
@@ -325,17 +323,12 @@ final class NotchWindowController {
         return NSEvent.mouseLocation.y >= screen.frame.maxY - 140
     }
 
-    /// Fade the panel out/in (hide while moving a window, reappear after).
+    /// Hide/show the panel instantly (hide while moving a window, reappear
+    /// immediately after) — no fade, so there's no lag and no black flash.
     private func setPanelHidden(_ hidden: Bool) {
         if hidden { panel.ignoresMouseEvents = true }
-        let target: CGFloat = hidden ? 0 : 1
-        guard panel.alphaValue != target else { return }
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.15
-            panel.animator().alphaValue = target
-        }, completionHandler: { [weak self] in
-            if !hidden { self?.evaluatePointer() }
-        })
+        panel.alphaValue = hidden ? 0 : 1
+        if !hidden { evaluatePointer() }
     }
 
     /// Stable identifier for a screen (NSScreen instances aren't identity-stable).

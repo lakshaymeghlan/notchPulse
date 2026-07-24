@@ -192,12 +192,11 @@ struct NotchView: View {
     /// back to flat here) — clipped to the notch shape with a glass edge.
     @ViewBuilder
     private func surfaceBackground(_ shape: NotchShape) -> some View {
-        // Collapsed: idle draws NOTHING (a #000 box at rest reads as a second
-        // notch). While an agent is active, draw a black pill that hugs the notch
-        // so the "Claude Code · running" labels sit INSIDE it (Dynamic-Island
-        // style) rather than floating loose in the menu bar.
+        // Collapsed draws NO surface (a #000 box reads as a black bar / second
+        // notch, especially while moving windows). The running labels float over
+        // the menu bar with no background. Only the expanded panel draws a surface.
         if !expanded {
-            if active { shape.fill(Color.black) } else { Color.clear }
+            Color.clear
         } else if useGlass {
             switch glassMode {
             case .frosted:
