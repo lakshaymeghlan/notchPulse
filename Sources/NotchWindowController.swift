@@ -277,15 +277,9 @@ final class NotchWindowController {
     /// notch. Mouse-move monitors (global fires while another app is active,
     /// local while we are) keep it in sync without ever blocking clicks.
     private func installPointerMonitors() {
-        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
-        // A button-held drag (e.g. moving a window past the top of the screen)
-        // must NOT expand the notch — only true hover (mouseMoved) does. We still
-        // keep click-through / display-following in sync during drags.
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .leftMouseUp]
         let handle: @Sendable (NSEvent) -> Void = { [weak self] event in
-            MainActor.assumeIsolated {
-                self?.maybeFollowCursor()
-                self?.evaluatePointer(updateHover: event.type != .leftMouseDragged)
-            }
+            MainActor.assumeIsolated { self?.handlePointer(event) }
         }
         let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: handle)
         if let global { pointerMonitors.append(global) }
@@ -294,6 +288,54 @@ final class NotchWindowController {
             return event
         })
         if let local { pointerMonitors.append(local) }
+    }
+
+    private var draggingHidden = false
+
+    private func handlePointer(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDragged:
+            // Fade the notch out while a window is dragged up near it, so it's
+            // never a static bar sitting on top. A button-held drag must also not
+            // expand it (only true hover does).
+            if cursorNearTop() && !draggingHidden {
+                draggingHidden = true
+                setPanelHidden(true)
+            }
+            maybeFollowCursor()
+            evaluatePointer(updateHover: false)
+        case .leftMouseUp:
+            if draggingHidden {
+                draggingHidden = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                    self?.setPanelHidden(false)
+                }
+            }
+            evaluatePointer(updateHover: true)
+        default:   // mouseMoved
+            if draggingHidden { draggingHidden = false; setPanelHidden(false) }
+            maybeFollowCursor()
+            evaluatePointer(updateHover: true)
+        }
+    }
+
+    /// Cursor within the top band where dragging a window overlaps the notch.
+    private func cursorNearTop() -> Bool {
+        guard let screen = positioningScreen else { return false }
+        return NSEvent.mouseLocation.y >= screen.frame.maxY - 140
+    }
+
+    /// Fade the panel out/in (hide while moving a window, reappear after).
+    private func setPanelHidden(_ hidden: Bool) {
+        if hidden { panel.ignoresMouseEvents = true }
+        let target: CGFloat = hidden ? 0 : 1
+        guard panel.alphaValue != target else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.15
+            panel.animator().alphaValue = target
+        }, completionHandler: { [weak self] in
+            if !hidden { self?.evaluatePointer() }
+        })
     }
 
     /// Stable identifier for a screen (NSScreen instances aren't identity-stable).
