@@ -126,12 +126,15 @@ final class ActivityServer {
         if request.method == "GET", pathOnly(request.path) == "/decision" {
             let id = queryValue(request.path, "id") ?? ""
             Task { @MainActor in
-                let json: String
-                switch self.approvals.decision(for: id) {
-                case .some(true): json = #"{"decision":"allow"}"#
-                case .some(false): json = #"{"decision":"deny"}"#
-                case .none: json = #"{"decision":"pending"}"#
+                let d = self.approvals.decision(for: id)
+                let resp: DecisionResponse
+                switch d {
+                case .some(let dec): resp = DecisionResponse(decision: dec.allow ? "allow" : "deny", text: dec.text)
+                case .none: resp = DecisionResponse(decision: "pending", text: nil)
                 }
+                // JSONEncoder handles escaping the free-text answer safely.
+                let json = (try? JSONEncoder().encode(resp)).flatMap { String(data: $0, encoding: .utf8) }
+                    ?? #"{"decision":"pending"}"#
                 self.respond(connection, status: 200, reason: "OK", json: json)
             }
             return
@@ -206,6 +209,12 @@ final class ActivityServer {
             connection.cancel()
         })
     }
+}
+
+/// Decision reply the hook polls for. `text` is the user's free-form answer.
+struct DecisionResponse: Codable {
+    let decision: String   // allow | deny | pending
+    let text: String?
 }
 
 /// Approval request body from the hook.

@@ -500,7 +500,7 @@ private struct SectionsLayout: View {
         GeometryReader { geo in
             let editing = notchState.editingLayout
             let n = sections.count
-            let dividerSpace = CGFloat(max(0, n - 1)) * 9
+            let dividerSpace = CGFloat(max(0, n - 1)) * 14
             let avail = max(1, geo.size.width - dividerSpace)
             let weights = pages.weights(forPageAt: pageIdx)
             let sum = max(1, weights.reduce(0, +))
@@ -666,44 +666,73 @@ private extension View { func hoverChip() -> some View { modifier(HoverChip()) }
 /// Amber banner shown when an agent is waiting for an Approve/Deny decision.
 private struct ApprovalBanner: View {
     @EnvironmentObject var approvals: ApprovalStore
+    @State private var reply = ""
 
     var body: some View {
         if let a = approvals.pending.first {
-            HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.shield.fill")
-                    .font(.system(size: 15)).foregroundStyle(.orange)
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
-                        Text("\(a.source) wants to run")
-                            .font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.65))
-                        if approvals.pending.count > 1 {
-                            Text("+\(approvals.pending.count - 1) more")
-                                .font(.system(size: 9, weight: .medium)).foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .font(.system(size: 15)).foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            Text("\(a.source) is asking")
+                                .font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.65))
+                            if approvals.pending.count > 1 {
+                                Text("+\(approvals.pending.count - 1) more")
+                                    .font(.system(size: 9, weight: .medium)).foregroundStyle(.orange)
+                            }
                         }
+                        Text(a.command.isEmpty ? a.tool : a.command)
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white).lineLimit(2).truncationMode(.middle)
                     }
-                    Text(a.command.isEmpty ? a.tool : a.command)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 8)
+                    Button("No") { approvals.decide(a.id, allow: false) }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .padding(.horizontal, 14).padding(.vertical, 6)
+                        .background(Capsule().fill(.white.opacity(0.1)))
+                    Button("Yes") { approvals.decide(a.id, allow: true) }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 16).padding(.vertical, 6)
+                        .background(Capsule().fill(.green))
                 }
-                Spacer(minLength: 8)
-                Button("Deny") { approvals.decide(a.id, allow: false) }
+                // Type a free answer (agent hook reads it from /decision).
+                HStack(spacing: 8) {
+                    TextField("Type a reply…", text: $reply)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .onSubmit { send(a.id) }
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Capsule().fill(.white.opacity(0.08)))
+                    Button {
+                        send(a.id)
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(reply.trimmingCharacters(in: .whitespaces).isEmpty ? .white.opacity(0.3) : .orange)
+                    }
                     .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Capsule().fill(.white.opacity(0.1)))
-                Button("Approve") { approvals.decide(a.id, allow: true) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 14).padding(.vertical, 6)
-                    .background(Capsule().fill(.green))
+                    .disabled(reply.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(.orange.opacity(0.14))
             .overlay(Rectangle().fill(.orange.opacity(0.4)).frame(height: 1), alignment: .bottom)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    private func send(_ id: String) {
+        let text = reply.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+        approvals.decide(id, allow: true, text: text)
+        reply = ""
     }
 }
 

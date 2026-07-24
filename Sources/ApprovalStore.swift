@@ -11,8 +11,10 @@ final class ApprovalStore: ObservableObject {
         let source: String
     }
 
+    struct Decision { let allow: Bool; let text: String? }
+
     @Published private(set) var pending: [Approval] = []
-    private var decisions: [String: Bool] = [:] // id → allow
+    private var decisions: [String: Decision] = [:]
 
     /// Fired when a request arrives or a decision is made.
     var onChange: (() -> Void)?
@@ -23,12 +25,14 @@ final class ApprovalStore: ObservableObject {
         onChange?()
     }
 
-    func decide(_ id: String, allow: Bool) {
-        decisions[id] = allow
+    /// `text` is a free-form answer the user typed (e.g. their opinion); the
+    /// agent's hook can read it from /decision. Yes/No pass no text.
+    func decide(_ id: String, allow: Bool, text: String? = nil) {
+        decisions[id] = Decision(allow: allow, text: text)
         pending.removeAll { $0.id == id }
         onChange?()
     }
 
     /// nil = still pending.
-    func decision(for id: String) -> Bool? { decisions[id] }
+    func decision(for id: String) -> Decision? { decisions[id] }
 }

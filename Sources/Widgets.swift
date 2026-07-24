@@ -94,7 +94,7 @@ struct NotchSection<Content: View>: View {
     var body: some View {
         // 8pt scale: header→content gap 8, internal content gaps owned by each
         // section (target 10). Consistent header treatment across all sections.
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.system(size: 9, weight: .bold))
@@ -107,8 +107,8 @@ struct NotchSection<Content: View>: View {
             content()
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)   // 12 + 12 between columns ≈ 24pt gap
-        .padding(.vertical, 14)
+        .padding(.horizontal, 15)
+        .padding(.vertical, 15)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
@@ -121,7 +121,7 @@ struct ClockSection: View {
             NotchSection(title: "Clock", systemImage: "clock") {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(ctx.date, format: .dateTime.hour().minute())
-                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .monospacedDigit()
                         .lineLimit(1)
