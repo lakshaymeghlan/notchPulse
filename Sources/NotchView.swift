@@ -64,14 +64,9 @@ enum NotchLayout {
             ? true : UserDefaults.standard.bool(forKey: "liveEars")
     }
 
-    /// Dynamic collapsed width: two EQUAL halves (sized to the wider label) on
-    /// each side of the camera, so the pill is symmetric and the labels read as
-    /// centered/balanced — not shoved to one side.
-    static func collapsedWidth(notchWidth: CGFloat, summary: ActivityStore.Summary, source: String?) -> CGFloat {
-        guard summary != .idle, showsEars else { return notchWidth }
-        let (l, r) = LiveActivity.labels(summary: summary, source: source)
-        return notchWidth + LiveActivity.halfWidth(left: l, right: r) * 2
-    }
+    /// Collapsed surface hugs the physical notch exactly — the running status is
+    /// shown by a compact pill BELOW the notch, not by widening into the ears.
+    static func collapsedWidth(notchWidth: CGFloat) -> CGFloat { notchWidth }
 }
 
 /// Measures the live-activity labels so the collapsed pill can size itself.
@@ -132,7 +127,7 @@ struct NotchView: View {
     var body: some View {
         let notchW = notchState.notchSize.width  > 0 ? notchState.notchSize.width  : NotchMetrics.fallbackNotchWidth
         let notchH = notchState.notchSize.height > 0 ? notchState.notchSize.height : NotchMetrics.fallbackNotchHeight
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, summary: store.summary, source: latestSource)
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW)
         let w = expanded ? NotchMetrics.expandedWidth  : collapsedW
         let h = expanded ? NotchMetrics.expandedHeight : notchH
         let shape = NotchShape(topCornerRadius: 12, bottomCornerRadius: expanded ? 30 : (active ? 16 : 10))
@@ -152,10 +147,9 @@ struct NotchView: View {
                             if expanded {
                                 ExpandedDashboard(notchHeight: notchH)
                                     .transition(.opacity)
-                            } else {
-                                CompactContent(notchWidth: notchW, notchHeight: notchH)
-                                    .transition(.opacity)
                             }
+                            // Collapsed: nothing inside the notch itself — the
+                            // running status is a compact pill just below it.
                         }
                         .clipShape(shape)
                     }
@@ -175,6 +169,11 @@ struct NotchView: View {
                                 .combined(with: .opacity)
                                 .combined(with: .move(edge: .top)),
                             removal: .opacity))
+                } else if active {
+                    // Compact "Dynamic Island" pill hanging just under the notch.
+                    CollapsedPill()
+                        .padding(.top, 3)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
@@ -250,61 +249,47 @@ struct NotchView: View {
     private struct AnimKey: Equatable { let expanded: Bool; let active: Bool }
 }
 
-// MARK: - Collapsed / compact (Dynamic-Island-style live activity)
+// MARK: - Collapsed running pill (Dynamic-Island-style, hangs under the notch)
 
-private struct CompactContent: View {
+private struct CollapsedPill: View {
     @EnvironmentObject var store: ActivityStore
-    let notchWidth: CGFloat
-    let notchHeight: CGFloat
 
     private var source: String? {
         (store.activities.first(where: { $0.status == .running }) ?? store.activities.first)?.source
     }
-
-    private var statusColor: Color {
+    private var status: String {
+        switch store.summary {
+        case .success: return "done"
+        case .failure: return "failed"
+        default:       return "running"
+        }
+    }
+    private var color: Color {
         switch store.summary {
         case .success: return .green
         case .failure: return .red
-        case .running: return Color(red: 1, green: 0.36, blue: 0.45)   // brand pink
-        case .idle:    return .white
+        default:       return Color(red: 1, green: 0.36, blue: 0.45)   // brand pink
         }
     }
 
     var body: some View {
-        let summary = store.summary
-        if summary == .idle || !NotchLayout.showsEars {
-            Color.clear   // nothing at rest — physical notch only
-        } else {
-            // Live-activity labels straddling the camera: the agent's name on
-            // the left, its status (running / done / failed) on the right — so
-            // you can read "Claude Code · running" right in the notch.
-            let (left, right) = LiveActivity.labels(summary: summary, source: source)
-            let half = LiveActivity.halfWidth(left: left, right: right)
-            HStack(spacing: 0) {
-                Text(left)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .lineLimit(1).truncationMode(.tail)
-                    .frame(width: half - LiveActivity.gap, alignment: .trailing)
-                    .padding(.trailing, LiveActivity.gap)
-
-                Color.clear.frame(width: notchWidth)   // camera gap
-
-                HStack(spacing: 5) {
-                    Circle().fill(statusColor)
-                        .frame(width: 6, height: 6)
-                        .shadow(color: statusColor.opacity(0.9), radius: 2)
-                    Text(right)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(statusColor)
-                        .lineLimit(1)
-                }
-                .padding(.leading, LiveActivity.gap)
-                .frame(width: half - LiveActivity.gap, alignment: .leading)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, max(2, (notchHeight - 14) / 2))
+        HStack(spacing: 6) {
+            Circle().fill(color)
+                .frame(width: 6, height: 6)
+                .shadow(color: color.opacity(0.9), radius: 2)
+            Text(source ?? "Agent")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+            Text(status)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(color)
         }
+        .lineLimit(1)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.black))
+        .overlay(Capsule().stroke(.white.opacity(0.12), lineWidth: 0.5))
+        .fixedSize()
     }
 }
 
