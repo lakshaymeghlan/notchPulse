@@ -8,11 +8,11 @@ import Combine
 enum NotchMetrics {
     // The host window is a fixed rectangle pinned to the top-center of the
     // display. It must be at least as large as the expanded surface.
-    static let windowWidth: CGFloat = 880
-    static let windowHeight: CGFloat = 300   // room for the floating tab row below
+    static let windowWidth: CGFloat = 760
+    static let windowHeight: CGFloat = 268   // room for the floating tab row below
 
-    static let expandedWidth: CGFloat = 820
-    static let expandedHeight: CGFloat = 214
+    static let expandedWidth: CGFloat = 680
+    static let expandedHeight: CGFloat = 180
 
     // Floating round tab buttons beneath the panel (macnotch-style).
     static let tabBarGap: CGFloat = 14
@@ -499,13 +499,12 @@ final class NotchWindowController {
         let notchW = hasNotch ? anchorNotch.width : NotchMetrics.fallbackNotchWidth
         let collapsedH = hasNotch ? anchorNotch.height : NotchMetrics.fallbackNotchHeight
         let active = store.summary != .idle
-        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW)
+        let source = (store.activities.first(where: { $0.status == .running }) ?? store.activities.first)?.source
+        let collapsedW = NotchLayout.collapsedWidth(notchWidth: notchW, summary: store.summary, source: source)
 
-        // When collapsed, pad the hit zone (wider + taller) so the cursor
-        // reliably catches it — and, while active, tall enough to also cover the
-        // running pill hanging under the notch.
+        // When collapsed, pad the hit zone so the cursor reliably catches it.
         let hPad: CGFloat = expanded ? 0 : 14
-        let vPad: CGFloat = expanded ? 0 : (active ? 36 : 12)
+        let vPad: CGFloat = expanded ? 0 : 12
         let w = (expanded ? NotchMetrics.expandedWidth : collapsedW) + hPad
         // When expanded, extend the hit region down to cover the floating tab row.
         let h = (expanded ? NotchMetrics.expandedInteractiveHeight : collapsedH) + vPad
