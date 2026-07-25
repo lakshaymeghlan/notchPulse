@@ -502,7 +502,7 @@ private struct SectionsLayout: View {
         GeometryReader { geo in
             let editing = notchState.editingLayout
             let n = sections.count
-            let dividerSpace = CGFloat(max(0, n - 1)) * 14
+            let dividerSpace = CGFloat(max(0, n - 1)) * 18
             let avail = max(1, geo.size.width - dividerSpace)
             let weights = pages.weights(forPageAt: pageIdx)
             let sum = max(1, weights.reduce(0, +))

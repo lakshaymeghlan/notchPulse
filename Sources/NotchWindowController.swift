@@ -8,11 +8,11 @@ import Combine
 enum NotchMetrics {
     // The host window is a fixed rectangle pinned to the top-center of the
     // display. It must be at least as large as the expanded surface.
-    static let windowWidth: CGFloat = 760
-    static let windowHeight: CGFloat = 280   // room for the floating tab row below
+    static let windowWidth: CGFloat = 880
+    static let windowHeight: CGFloat = 300   // room for the floating tab row below
 
-    static let expandedWidth: CGFloat = 720
-    static let expandedHeight: CGFloat = 196
+    static let expandedWidth: CGFloat = 820
+    static let expandedHeight: CGFloat = 214
 
     // Floating round tab buttons beneath the panel (macnotch-style).
     static let tabBarGap: CGFloat = 14
