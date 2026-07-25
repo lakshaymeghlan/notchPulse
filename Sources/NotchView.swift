@@ -76,7 +76,7 @@ enum NotchLayout {
 /// Measures the live-activity labels so the collapsed pill can size itself.
 enum LiveActivity {
     static let gap: CGFloat = 4        // inner gap (text → camera)
-    static let outer: CGFloat = 24     // so each label keeps ≥14pt inset, centered
+    static let outer: CGFloat = 12     // tighter ears ⇒ a smaller collapsed notch
     static let maxLabel: CGFloat = 150 // cap; longer labels truncate with an ellipsis
     static let weight: NSFont.Weight = .medium   // same weight for both labels
 
