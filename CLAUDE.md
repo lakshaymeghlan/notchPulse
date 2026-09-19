@@ -10,7 +10,7 @@ the notch shows live activity. **Clean-room, original, commercial** — never co
 from Boring Notch, MacNotch, or any GPL/CC-BY-NC project.
 
 ## Build
-
+ 
 Project is generated from `project.yml` via XcodeGen. After editing sources or
 `project.yml`:
 
